@@ -89,4 +89,5 @@ module.exports = {
   updateUser,
   deactivateUser,
   getUserTeam,
+  assertCanView,
 };
