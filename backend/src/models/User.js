@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ROLES, default: 'employee' },
     team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     manager: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    officeLocations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'OfficeLocation' }],
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

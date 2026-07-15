@@ -40,6 +40,7 @@ async function createUser(data) {
     team: data.team || null,
     manager: data.manager || null,
     password: data.password,         // hashed by the pre('validate') hook
+    officeLocations: data.officeLocations || [],
   });
   await user.save();
   return user;
@@ -54,7 +55,7 @@ async function updateUser(requester, id, data) {
   if (!isAdmin && !isSelf) throw new ApiError(403, 'Forbidden');
 
   if (isAdmin) {
-    ['name', 'email', 'role', 'team', 'manager', 'isActive'].forEach((f) => {
+    ['name', 'email', 'role', 'team', 'manager', 'isActive', 'officeLocations'].forEach((f) => {
       if (data[f] !== undefined) user[f] = data[f];
     });
   } else {

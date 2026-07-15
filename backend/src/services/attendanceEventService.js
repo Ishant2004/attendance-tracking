@@ -2,21 +2,26 @@ const AttendanceEvent = require('../models/AttendanceEvent');
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const { assertCanView } = require('./userService');
-const { resolveLocation } = require('../utils/geofence');
+const { resolveAgainstOffices } = require('../utils/geofence');
 
 // Ingest one event for a user; geofence resolution happens here.
 async function recordEvent(userId, { eventType, latitude, longitude, timestamp }) {
-  const { detectedLocationType, officeLocation } = await resolveLocation(latitude, longitude);
-  return AttendanceEvent.create({
-    user: userId,
-    eventType,
-    latitude,
-    longitude,
-    timestamp: timestamp ? new Date(timestamp) : new Date(),
-    detectedLocationType,
-    officeLocation,
-  });
-}
+    const user = await User.findById(userId).populate('officeLocations');
+    const { detectedLocationType, officeLocation } = resolveAgainstOffices(
+      user?.officeLocations || [],
+      latitude,
+      longitude
+    );
+    return AttendanceEvent.create({
+      user: userId,
+      eventType,
+      latitude,
+      longitude,
+      timestamp: timestamp ? new Date(timestamp) : new Date(),
+      detectedLocationType,
+      officeLocation,
+    });
+  }
 
 async function getUserEvents(requester, userId, { limit = 50, from, to } = {}) {
   const target = await User.findById(userId);

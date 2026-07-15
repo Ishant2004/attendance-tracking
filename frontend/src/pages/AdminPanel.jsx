@@ -44,14 +44,19 @@ function UsersAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'employee', team: '', manager: '' });
+  const [locations, setLocations] = useState([]);
+  const [form, setForm] = useState({
+    name: '', email: '', password: '', role: 'employee', team: '', manager: '', officeLocations: [],
+  });
+
 
   const load = async () => {
     setLoading(true);
     try {
-      const [u, t] = await Promise.all([usersApi.list(), teamsApi.list()]);
+      const [u, t, l] = await Promise.all([usersApi.list(), teamsApi.list(), locationsApi.list()]);
       setUsers(u);
       setTeams(t);
+      setLocations(l);
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to load');
     } finally {
@@ -70,8 +75,9 @@ function UsersAdmin() {
       const body = { ...form };
       if (!body.team) delete body.team;
       if (!body.manager) delete body.manager;
+      if (!body.officeLocations?.length) delete body.officeLocations;
       await usersApi.create(body);
-      setForm({ name: '', email: '', password: '', role: 'employee', team: '', manager: '' });
+      setForm({ name: '', email: '', password: '', role: 'employee', team: '', manager: '', officeLocations: [] });
       await load();
     } catch (e) {
       setError(e.response?.data?.message || 'Create failed');
@@ -90,6 +96,7 @@ function UsersAdmin() {
   };
 
   const managers = users.filter((u) => ['manager', 'leadership', 'admin'].includes(u.role));
+  const locName = Object.fromEntries(locations.map((l) => [l._id, l.name]));
   if (loading) return <Spinner />;
 
   return (
@@ -115,6 +122,26 @@ function UsersAdmin() {
             {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
           </select>
           <div className="md:col-span-3">
+            <label className="block text-xs text-slate-500 mb-1">
+              Assigned offices (WFO) — Ctrl/Cmd-click to select multiple
+            </label>
+            <select
+              multiple
+              value={form.officeLocations}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  officeLocations: [...e.target.selectedOptions].map((o) => o.value),
+                }))
+              }
+              className={inputCls + ' w-full h-28'}
+            >
+              {locations.map((l) => (
+                <option key={l._id} value={l._id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-3">
             <button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create user'}</button>
           </div>
         </form>
@@ -128,6 +155,7 @@ function UsersAdmin() {
                 <th className="py-2 pr-4">Name</th>
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">Role</th>
+                <th className="py-2 pr-4">Offices</th>
                 <th className="py-2 pr-4">Active</th>
                 <th></th>
               </tr>
@@ -138,6 +166,9 @@ function UsersAdmin() {
                   <td className="py-2 pr-4">{u.name}</td>
                   <td className="py-2 pr-4">{u.email}</td>
                   <td className="py-2 pr-4"><Badge tone={u.role === 'admin' ? 'high' : 'unknown'}>{u.role}</Badge></td>
+                  <td className="py-2 pr-4 text-slate-500">
+                    {(u.officeLocations || []).map((id) => locName[id] || '—').join(', ') || '—'}
+                  </td>
                   <td className="py-2 pr-4">{u.isActive ? 'Yes' : 'No'}</td>
                   <td className="py-2 pr-4 text-right">
                     {u.isActive && (

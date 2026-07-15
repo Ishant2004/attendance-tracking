@@ -28,6 +28,8 @@ router.post(
   body('role').optional().isIn(User.ROLES),
   body('team').optional().isMongoId(),
   body('manager').optional().isMongoId(),
+  body('officeLocations').optional().isArray(),
+  body('officeLocations.*').optional().isMongoId(),
   validate,
   ctrl.create
 );
@@ -42,6 +44,8 @@ router.put(
   body('role').optional().isIn(User.ROLES),
   body('team').optional().isMongoId(),
   body('manager').optional().isMongoId(),
+  body('officeLocations').optional().isArray(),
+  body('officeLocations.*').optional().isMongoId(),
   validate,
   ctrl.update
 );
