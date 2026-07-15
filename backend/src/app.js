@@ -8,6 +8,7 @@ const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const officeLocationRoutes = require('./routes/officeLocationRoutes');
 const attendanceEventRoutes = require('./routes/attendanceEventRoutes');
+const attendanceRecordRoutes = require('./routes/attendanceRecordRoutes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/office-locations', officeLocationRoutes);
 app.use('/api/attendance-events', attendanceEventRoutes);
+app.use('/api/attendance-records', attendanceRecordRoutes);
 
 app.use((req, res) => res.status(404).json({ success: false, message: 'Not found' }));
 app.use(errorHandler);
