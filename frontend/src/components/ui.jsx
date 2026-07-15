@@ -35,3 +35,13 @@ export function Card({ title, actions, children, className = '' }) {
   export function Spinner({ label = 'Loading…' }) {
     return <div className="text-slate-500 text-sm py-4">{label}</div>;
   }
+
+  export function Stat({ label, value, sub }) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="text-sm text-slate-500">{label}</div>
+        <div className="text-2xl font-bold text-slate-800">{value}</div>
+        {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+      </div>
+    );
+  }
