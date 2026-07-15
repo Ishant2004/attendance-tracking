@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usersApi } from '../api/users';
 import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
+import { holidaysApi } from '../api/holidays';
 import { Card, Badge, Spinner } from '../components/ui';
 
 const inputCls =
@@ -9,7 +10,7 @@ const inputCls =
 const btnCls =
   'rounded-lg bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60';
 
-const TABS = ['Users', 'Teams', 'Office Locations'];
+const TABS = ['Users', 'Teams', 'Office Locations', 'Holidays'];
 
 export default function AdminPanel() {
   const [tab, setTab] = useState('Users');
@@ -34,6 +35,99 @@ export default function AdminPanel() {
       {tab === 'Users' && <UsersAdmin />}
       {tab === 'Teams' && <TeamsAdmin />}
       {tab === 'Office Locations' && <LocationsAdmin />}
+      {tab === 'Holidays' && <HolidaysAdmin />}
+    </div>
+  );
+}
+
+function HolidaysAdmin() {
+  const [holidays, setHolidays] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ date: '', name: '' });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setHolidays(await holidaysApi.list({ includeInactive: true }));
+    } catch (e) {
+      setError(e.response?.data?.message || 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      await holidaysApi.create({ date: form.date, name: form.name });
+      setForm({ date: '', name: '' });
+      await load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Create failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (id) => {
+    try {
+      await holidaysApi.remove(id);
+      await load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Failed');
+    }
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="space-y-4">
+      {error && <div className="rounded bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
+      <Card title="Add holiday">
+        <form onSubmit={submit} className="grid md:grid-cols-3 gap-3">
+          <input required type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className={inputCls} />
+          <input required placeholder="Name (e.g. Diwali)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
+          <div><button disabled={saving} className={btnCls}>{saving ? 'Adding…' : 'Add holiday'}</button></div>
+        </form>
+      </Card>
+
+      <Card title={`Holidays (${holidays.length})`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-100">
+                <th className="py-2 pr-4">Date</th>
+                <th className="py-2 pr-4">Name</th>
+                <th className="py-2 pr-4">Active</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {holidays.map((h) => (
+                <tr key={h._id} className="border-b border-slate-50">
+                  <td className="py-2 pr-4">{h.date}</td>
+                  <td className="py-2 pr-4">{h.name}</td>
+                  <td className="py-2 pr-4">{h.isActive ? 'Yes' : 'No'}</td>
+                  <td className="py-2 pr-4 text-right">
+                    {h.isActive && (
+                      <button onClick={() => remove(h._id)} className="text-red-600 text-xs hover:underline">
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -2,7 +2,9 @@ const asyncHandler = require('../utils/asyncHandler');
 const service = require('../services/calendarService');
 
 const list = asyncHandler(async (req, res) => {
-  res.json({ success: true, data: { holidays: await service.listHolidays() } });
+  // Only admins may see soft-deleted holidays.
+  const includeInactive = req.user.role === 'admin' && req.query.includeInactive === 'true';
+  res.json({ success: true, data: { holidays: await service.listHolidays({ includeInactive }) } });
 });
 
 const create = asyncHandler(async (req, res) => {
