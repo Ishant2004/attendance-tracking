@@ -6,7 +6,9 @@ const ApiError = require('../utils/ApiError');
 function assertCanViewTeam(requester, team) {
   const role = requester.role;
   if (role === 'admin' || role === 'leadership') return;
-  if (role === 'manager' && String(team.manager) === requester.id) return;
+  // `manager` may be a populated doc or a raw ObjectId — normalize to its id.
+  const managerId = team.manager && team.manager._id ? String(team.manager._id) : String(team.manager);
+  if (role === 'manager' && managerId === requester.id) return;
   throw new ApiError(403, 'Forbidden');
 }
 
