@@ -76,10 +76,11 @@ async function deactivateUser(id) {
 }
 
 async function getUserTeam(requester, id) {
-  const user = await getUserById(requester, id);   // reuses scoping check
-  // Team model arrives in Step 3; for now return the team reference (or null).
-  return user.team;
-}
+    const user = await User.findById(id).populate('team');
+    if (!user) throw new ApiError(404, 'User not found');
+    assertCanView(requester, user);
+    return user.team;   // full team document now, or null
+  }
 
 module.exports = {
   listUsers,
