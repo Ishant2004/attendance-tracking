@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const { rollupEventsToRecord } = require('../services/attendanceRecordService');
+const { runDetection } = require('../services/flagService');
 const { dateStrInTZ } = require('../utils/datetime');
 const { timezone } = require('../config/env');
 
@@ -31,6 +32,12 @@ async function runNightlyRollup() {
   return res;
 }
 
+async function runWeeklyDetection({ windowDays = 7 } = {}) {
+  const flags = await runDetection({ windowDays });
+  console.log(`[weekly-detection] ${windowDays}-day window: ${flags.length} flags upserted`);
+  return flags;
+}
+
 function scheduleJobs() {
   // 00:30 every day, in app timezone — rolls up the day that just ended.
   cron.schedule(
@@ -41,6 +48,22 @@ function scheduleJobs() {
     { timezone }
   );
   console.log(`[jobs] nightly rollup scheduled at 00:30 ${timezone}`);
+
+  // Sunday 01:30 (after Saturday's rollup) — outlier detection over the past week.
+  cron.schedule(
+    '30 1 * * 0',
+    () => {
+      runWeeklyDetection().catch((e) => console.error('[weekly-detection] error', e));
+    },
+    { timezone }
+  );
+  console.log(`[jobs] weekly detection scheduled Sun 01:30 ${timezone}`);
 }
 
-module.exports = { scheduleJobs, runNightlyRollup, rollupAllUsersForDate, yesterdayStr };
+module.exports = {
+  scheduleJobs,
+  runNightlyRollup,
+  runWeeklyDetection,
+  rollupAllUsersForDate,
+  yesterdayStr,
+};
