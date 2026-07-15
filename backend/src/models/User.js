@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     manager: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     officeLocations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'OfficeLocation' }],
     isActive: { type: Boolean, default: true },
+    emailVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
