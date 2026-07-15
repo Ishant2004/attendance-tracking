@@ -11,4 +11,6 @@ module.exports = {
   },
   // Single-timezone app. IST = UTC+5:30, no DST. Override via env if ever needed.
   tzOffsetMinutes: Number(process.env.TZ_OFFSET_MINUTES || 330),
+  // IANA zone name for the cron scheduler.
+  timezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
 };
