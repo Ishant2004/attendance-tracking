@@ -31,11 +31,17 @@ async function runDetection({ windowDays = 7 } = {}) {
     });
     if (!records.length) continue;
 
-    const lateCount = records.filter((r) => r.isLate).length;
-    const absenceCount = records.filter((r) => r.status === 'Absent').length;
-    const wfo = records.filter((r) => r.status === 'WFO').length;
-    const worked = wfo + records.filter((r) => r.status === 'WFH').length;
-    const irregularCount = records.filter(
+    // Only working days count — weekends, holidays, and leave never trigger flags.
+    const workingRecords = records.filter(
+      (r) => !['Weekend', 'Holiday', 'Leave'].includes(r.status)
+    );
+    if (!workingRecords.length) continue;
+
+    const lateCount = workingRecords.filter((r) => r.isLate).length;
+    const absenceCount = workingRecords.filter((r) => r.status === 'Absent').length;
+    const wfo = workingRecords.filter((r) => r.status === 'WFO').length;
+    const worked = wfo + workingRecords.filter((r) => r.status === 'WFH').length;
+    const irregularCount = workingRecords.filter(
       (r) => r.totalHours > 0 && (r.totalHours < 4 || r.totalHours > 12)
     ).length;
 

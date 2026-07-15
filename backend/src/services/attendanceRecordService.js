@@ -3,15 +3,18 @@ const AttendanceEvent = require('../models/AttendanceEvent');
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const { assertCanView } = require('./userService');
+const { dayWindow: tzDayWindow } = require('../utils/datetime');
+const { getDayType } = require('./calendarService');
 
 const LATE_THRESHOLD_HOUR = 10; // check-in at/after 10:00 (server local) counts as late
 
-// [start, end] of a 'YYYY-MM-DD' day in server-local time.
+// [start, end] of a 'YYYY-MM-DD' day, in app timezone (IST).
 function dayWindow(dateStr) {
-  const start = new Date(`${dateStr}T00:00:00`);
-  const end = new Date(`${dateStr}T23:59:59.999`);
-  if (Number.isNaN(start.getTime())) throw new ApiError(400, 'Invalid date (use YYYY-MM-DD)');
-  return { start, end };
+  try {
+    return tzDayWindow(dateStr);
+  } catch {
+    throw new ApiError(400, 'Invalid date (use YYYY-MM-DD)');
+  }
 }
 
 // Aggregate a user's events for one day into their daily record.
@@ -30,7 +33,9 @@ async function rollupEventsToRecord(userId, dateStr) {
   if (!record) record = new AttendanceRecord({ user: userId, date: start });
 
   if (!events.length) {
-    record.status = 'Absent';
+    const dayType = await getDayType(dateStr);
+    record.status =
+      dayType.type === 'Holiday' ? 'Holiday' : dayType.type === 'Weekend' ? 'Weekend' : 'Absent';
     record.checkInTime = null;
     record.checkOutTime = null;
     record.totalHours = 0;
