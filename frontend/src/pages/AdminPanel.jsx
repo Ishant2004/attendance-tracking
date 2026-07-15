@@ -3,7 +3,7 @@ import { usersApi } from '../api/users';
 import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
 import { holidaysApi } from '../api/holidays';
-import { Card, Badge, Spinner } from '../components/ui';
+import { Card, Badge, Spinner, Select } from '../components/ui';
 
 const inputCls =
   'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
@@ -91,9 +91,15 @@ function HolidaysAdmin() {
     <div className="space-y-4">
       {error && <div className="rounded bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
       <Card title="Add holiday">
-        <form onSubmit={submit} className="grid md:grid-cols-3 gap-3">
-          <input required type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className={inputCls} />
-          <input required placeholder="Name (e.g. Diwali)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
+        <form onSubmit={submit} className="grid md:grid-cols-3 gap-3 items-end">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Date</label>
+            <input required type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className={inputCls + ' w-full'} />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Name</label>
+            <input required placeholder="e.g. Diwali" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls + ' w-full'} />
+          </div>
           <div><button disabled={saving} className={btnCls}>{saving ? 'Adding…' : 'Add holiday'}</button></div>
         </form>
       </Card>
@@ -201,39 +207,49 @@ function UsersAdmin() {
           <input required placeholder="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
           <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
           <input required type="password" placeholder="Password (min 6)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={inputCls} />
-          <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} className={inputCls}>
+          <Select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
             <option value="employee">employee</option>
             <option value="manager">manager</option>
             <option value="leadership">leadership</option>
             <option value="admin">admin</option>
-          </select>
-          <select value={form.team} onChange={(e) => setForm((f) => ({ ...f, team: e.target.value }))} className={inputCls}>
+          </Select>
+          <Select value={form.team} onChange={(e) => setForm((f) => ({ ...f, team: e.target.value }))}>
             <option value="">No team</option>
             {teams.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
-          </select>
-          <select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))} className={inputCls}>
+          </Select>
+          <Select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))}>
             <option value="">No manager</option>
             {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
-          </select>
+          </Select>
           <div className="md:col-span-3">
-            <label className="block text-xs text-slate-500 mb-1">
-              Assigned offices (WFO) — Ctrl/Cmd-click to select multiple
-            </label>
-            <select
-              multiple
-              value={form.officeLocations}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  officeLocations: [...e.target.selectedOptions].map((o) => o.value),
-                }))
-              }
-              className={inputCls + ' w-full h-28'}
-            >
-              {locations.map((l) => (
-                <option key={l._id} value={l._id}>{l.name}</option>
-              ))}
-            </select>
+            <label className="block text-xs text-slate-500 mb-1">Assigned offices (WFO) — tap to toggle</label>
+            <div className="flex flex-wrap gap-2">
+              {locations.map((l) => {
+                const on = form.officeLocations.includes(l._id);
+                return (
+                  <button
+                    type="button"
+                    key={l._id}
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        officeLocations: on
+                          ? f.officeLocations.filter((x) => x !== l._id)
+                          : [...f.officeLocations, l._id],
+                      }))
+                    }
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                      on
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {l.name}
+                  </button>
+                );
+              })}
+              {locations.length === 0 && <span className="text-sm text-slate-400">No offices yet</span>}
+            </div>
           </div>
           <div className="md:col-span-3">
             <button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create user'}</button>
@@ -331,10 +347,10 @@ function TeamsAdmin() {
       <Card title="Create team">
         <form onSubmit={submit} className="grid md:grid-cols-3 gap-3">
           <input required placeholder="Team name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
-          <select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))} className={inputCls}>
+          <Select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))}>
             <option value="">No manager</option>
             {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
-          </select>
+          </Select>
           <div><button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create team'}</button></div>
         </form>
       </Card>

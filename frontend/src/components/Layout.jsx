@@ -25,6 +25,18 @@ export default function Layout() {
   const links = NAV[user.role] || [];
   const tracking = usePingLoop(!!user);
 
+  const trackLabel =
+    { active: 'Tracking', denied: 'Location off', unsupported: 'No GPS', error: 'Unavailable' }[tracking] ||
+    'Locating…';
+  const trackDot =
+    tracking === 'active'
+      ? 'bg-green-500'
+      : tracking === 'denied' || tracking === 'error'
+      ? 'bg-amber-500'
+      : tracking === 'unsupported'
+      ? 'bg-slate-400'
+      : 'bg-slate-300 animate-pulse';
+
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true });
@@ -54,26 +66,12 @@ export default function Layout() {
               ))}
             </nav>
           </div>
-          <span className="text-xs flex items-center gap-1.5 text-slate-500" title="Location tracking">
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                tracking === 'active'
-                  ? 'bg-green-500'
-                  : tracking === 'denied'
-                  ? 'bg-amber-500'
-                  : 'bg-slate-300'
-              }`}
-            />
-            {tracking === 'active'
-              ? 'Tracking'
-              : tracking === 'denied'
-              ? 'Location off'
-              : tracking === 'unsupported'
-              ? 'No GPS'
-              : '…'}
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600">
+          <div className="flex items-center gap-4">
+            <span className="hidden sm:flex text-xs items-center gap-1.5 text-slate-500" title="Location tracking">
+              <span className={`inline-block w-2 h-2 rounded-full ${trackDot}`} />
+              {trackLabel}
+            </span>
+            <span className="text-sm text-slate-600 flex items-center">
               {user.name}
               <span className="ml-2 inline-block rounded bg-slate-100 text-slate-500 px-2 py-0.5 text-xs">
                 {user.role}

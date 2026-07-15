@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { attendanceApi } from '../api/attendance';
 import { getCurrentPosition } from '../utils/geo';
 
-const PING_INTERVAL_MS = 5 * 60 * 1000;
+const PING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Passive geo-fencing: while enabled and the tab is visible, POST a location
 // ping now and every 5 min. Returns a status for the UI indicator.
 export function usePingLoop(enabled) {
   const [state, setState] = useState('idle'); // idle | active | denied | error | unsupported
-  const timerRef = useRef(null);
-  const inFlight = useRef(false);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -18,11 +16,15 @@ export function usePingLoop(enabled) {
       return undefined;
     }
 
+    // Effect-local (not refs): each mount cycle gets its own flags, so React
+    // StrictMode's double-invoke can't leave a stale in-flight guard set.
     let cancelled = false;
+    let inFlight = false;
+    let timer = null;
 
     const ping = async () => {
-      if (document.visibilityState !== 'visible' || inFlight.current) return;
-      inFlight.current = true;
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
       try {
         const coords = await getCurrentPosition();
         if (cancelled) return;
@@ -31,26 +33,26 @@ export function usePingLoop(enabled) {
       } catch (e) {
         if (!cancelled) setState(e && e.code === 1 ? 'denied' : 'error'); // 1 = permission denied
       } finally {
-        inFlight.current = false;
+        inFlight = false;
       }
     };
 
     const start = () => {
       ping(); // immediate ping on start/resume
-      clearInterval(timerRef.current);
-      timerRef.current = setInterval(ping, PING_INTERVAL_MS);
+      clearInterval(timer);
+      timer = setInterval(ping, PING_INTERVAL_MS);
     };
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') start();
-      else clearInterval(timerRef.current);
+      else clearInterval(timer);
     };
 
     start();
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
-      clearInterval(timerRef.current);
+      clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [enabled]);
