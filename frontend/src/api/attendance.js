@@ -9,4 +9,5 @@ export const attendanceApi = {
     client.post('/attendance-events/check-out', coords).then((r) => r.data.data.event),
   records: (userId, params) =>
     client.get(`/attendance-records/${userId}`, { params }).then((r) => r.data.data.records),
+  ping: (coords) => client.post('/attendance-events', coords).then((r) => r.data.data.event),
 };

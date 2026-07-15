@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { usePingLoop } from '../hooks/usePingLoop';
 
 // Nav links per role — only what each role needs.
 const NAV = {
@@ -22,6 +23,7 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const links = NAV[user.role] || [];
+  const tracking = usePingLoop(!!user);
 
   const handleLogout = async () => {
     await logout();
@@ -52,7 +54,24 @@ export default function Layout() {
               ))}
             </nav>
           </div>
-
+          <span className="text-xs flex items-center gap-1.5 text-slate-500" title="Location tracking">
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${
+                tracking === 'active'
+                  ? 'bg-green-500'
+                  : tracking === 'denied'
+                  ? 'bg-amber-500'
+                  : 'bg-slate-300'
+              }`}
+            />
+            {tracking === 'active'
+              ? 'Tracking'
+              : tracking === 'denied'
+              ? 'Location off'
+              : tracking === 'unsupported'
+              ? 'No GPS'
+              : '…'}
+          </span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-600">
               {user.name}
