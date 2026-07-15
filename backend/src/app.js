@@ -6,6 +6,7 @@ const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
+const officeLocationRoutes = require('./routes/officeLocationRoutes');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.get('/health', (req, res) => res.json({ success: true, data: { status: 'ok' 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/office-locations', officeLocationRoutes);
 
 app.use((req, res) => res.status(404).json({ success: false, message: 'Not found' }));
 app.use(errorHandler);
