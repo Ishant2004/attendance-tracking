@@ -11,6 +11,7 @@ const attendanceEventRoutes = require('./routes/attendanceEventRoutes');
 const attendanceRecordRoutes = require('./routes/attendanceRecordRoutes');
 const flagRoutes = require('./routes/flagRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const calendarRoutes = require('./routes/calendarRoutes');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/attendance-events', attendanceEventRoutes);
 app.use('/api/attendance-records', attendanceRecordRoutes);
 app.use('/api/flags', flagRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/holidays', calendarRoutes);
 
 app.use((req, res) => res.status(404).json({ success: false, message: 'Not found' }));
 app.use(errorHandler);

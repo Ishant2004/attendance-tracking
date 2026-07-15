@@ -9,4 +9,6 @@ module.exports = {
     accessExpires: process.env.JWT_ACCESS_EXPIRES,
     refreshExpires: process.env.JWT_REFRESH_EXPIRES,
   },
+  // Single-timezone app. IST = UTC+5:30, no DST. Override via env if ever needed.
+  tzOffsetMinutes: Number(process.env.TZ_OFFSET_MINUTES || 330),
 };
