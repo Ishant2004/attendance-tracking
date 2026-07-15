@@ -1,9 +1,14 @@
-function App() {
+import { Routes, Route } from 'react-router-dom';
+import Login from './pages/Login';
+import Home from './pages/Home';
+import ProtectedRoute from './auth/ProtectedRoute';
+
+export default function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <h1 className="text-3xl font-bold text-indigo-600">Frontend is UP</h1>
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+      <Route path="*" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+    </Routes>
   );
 }
-
-export default App;
