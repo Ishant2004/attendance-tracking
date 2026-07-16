@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { attendanceApi } from '../api/attendance';
 import { getCurrentPosition } from '../utils/geo';
 
-const PING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 // Passive geo-fencing: while enabled and the tab is visible, POST a location
 // ping now and every 5 min. Returns a status for the UI indicator.
