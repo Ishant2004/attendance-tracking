@@ -4,6 +4,7 @@ import { attendanceApi } from '../api/attendance';
 import { flagsApi } from '../api/flags';
 import { getCurrentPosition } from '../utils/geo';
 import { Card, Badge, Spinner } from '../components/ui';
+import { flagLabel, flagDetail } from '../utils/flagFormat';
 
 const fmt = (dt) => (dt ? new Date(dt).toLocaleString() : '—');
 const fmtDate = (dt) => (dt ? new Date(dt).toLocaleDateString() : '—');
@@ -172,9 +173,9 @@ export default function MyAttendance() {
             {flags.map((f) => (
               <li key={f._id} className="flex items-center gap-3 text-sm">
                 <Badge tone={f.severity}>{f.severity}</Badge>
-                <span className="font-medium text-slate-700">{f.flagType.replace(/_/g, ' ')}</span>
-                <span className="text-slate-500">{f.details ? JSON.stringify(f.details) : ''}</span>
-                {f.resolved && <span className="text-green-600 text-xs">resolved</span>}
+                <span className="font-medium text-slate-700">{flagLabel(f.flagType)}</span>
+                <span className="text-slate-500">{flagDetail(f)}</span>
+                {f.resolved && <span className="ml-auto text-green-600 text-xs">resolved</span>}
               </li>
             ))}
           </ul>
