@@ -88,14 +88,16 @@ refresh fails ──► clear tokens ──► /login
 - **TeamDashboard** (`/team`, managers): loads **teams you manage** (`/teams/managed`); **team switcher** if >1; summary tiles + per-member table + team flags with **Resolve**. Friendly notice if you manage none.
 - **LeadershipDashboard** (`/leadership`): org stat tiles + **Recharts** trend line (WFO/WFH/Absent/Late) + team-comparison bars + teams table.
 - **AdminPanel** (`/admin`): four tabs —
-  - **Users**: create (role/team/manager `Select`s + **office `MultiSelect`**); list with **Edit** (a modal to change name / team / manager / assigned offices — shown for employee/manager/leadership, not admin) and **Deactivate** (own row shows "You").
-  - **Teams**: create (name + **manager `MultiSelect`**, ≥1), list with **Edit managers** (inline `MultiSelect` + Save).
-  - **Office Locations**: create (name/lat/lng/radius) + **📍 Choose location** map picker; list + deactivate.
+  - **Users**: create (role/team/manager `Select`s + **office `MultiSelect`**); list with **Edit** (a modal to change name / team / manager / assigned offices — shown for employee/manager/leadership, not admin) and **Delete** (own row shows "You").
+  - **Teams**: create (name + **manager `MultiSelect`**, ≥1), list with **Edit** (inline name input + manager `MultiSelect` + Save).
+  - **Office Locations**: create (name/lat/lng/radius) + **📍 Choose location** map picker; list with **Edit** (modal: name/lat/lng/radius, manual or map picker) + **Delete**.
+
+> **Delete = soft-delete everywhere.** Users, office locations, and holidays are never hard-deleted — the record is flagged `isActive:false` but **removed from the UI lists** (so there's no "Active" column). Every Delete asks for **confirmation** first. Because deleted items vanish from the list, you can re-create an office/holiday with the same name/date (the backend reactivates the soft-deleted record).
   - **Holidays**: add (date+name), list, soft-delete.
 - **ChangePassword** (`/change-password`): centered card, current/new/confirm with eye-toggle password fields.
 
 ## Reusable UI (`components/ui.jsx`)
-- `Card`, `Badge` (tone-colored: WFO green / WFH blue / Absent red / late high, etc.), `Spinner`, `Stat` (metric tile), `Select` (styled native single-select + chevron), `PasswordInput` (show/hide eye toggle — used on login, change-password, admin create-user), `MultiSelect` (searchable multi-select dropdown with removable tags — used for user→offices and team→managers).
+- `Card`, `Badge` (tone-colored: WFO green / WFH blue / Absent red / late high, etc.), `Spinner`, `Stat` (metric tile), `Select` (styled native single-select + chevron), `PasswordInput` (show/hide eye toggle — used on login, change-password, admin create-user), `MultiSelect` (searchable multi-select dropdown with removable tags — used for user→offices and team→managers), `ConfirmDialog` (confirmation modal for deletes).
 
 ## Map picker (`components/LocationPickerModal.jsx`)
 - Plain **Leaflet** + OpenStreetMap tiles (no API key). Click to drop a pin (or "Use my current location") → returns `{latitude, longitude}` → fills the office form. Uses a `circleMarker` (no marker-image bundling issues).

@@ -115,7 +115,7 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 ### Users — `/users`
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/` | manager/leadership/admin | list (role-scoped; manager → reports+self) |
+| GET | `/` | manager/leadership/admin | list **active users** (role-scoped; manager → reports+self) — deactivated users are hidden |
 | GET | `/:id` | self/manager/leadership/admin | one user |
 | POST | `/` | admin | create (name,email,password,role,team?,manager?,officeLocations) — **≥1 office required for non-admin roles** |
 | PUT | `/:id` | admin (any fields) / self (name,password) | update — team/manager may be cleared (null); **offices can't be emptied for non-admin** |
@@ -137,9 +137,9 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 |---|---|---|---|
 | GET | `/` | any A | active fences (admin can `?includeInactive=true`) |
 | GET | `/:id` | admin | one |
-| POST | `/` | admin | create (name,lat,lng,radiusMeters) |
-| PUT | `/:id` | admin | update |
-| DELETE | `/:id` | admin | soft-deactivate |
+| POST | `/` | admin | create (name,lat,lng,radiusMeters) — **reactivates** a soft-deleted location with the same name |
+| PUT | `/:id` | admin | update (name/lat/lng/radius) |
+| DELETE | `/:id` | admin | soft-delete (`isActive:false`) — hidden from lists |
 
 ### Attendance events — `/attendance-events`
 | Method | Path | Access | Purpose |

@@ -14,7 +14,18 @@ async function getLocationById(id) {
 
 async function createLocation(data) {
   const existing = await OfficeLocation.findOne({ name: data.name });
-  if (existing) throw new ApiError(400, 'Office location already exists');
+  if (existing && existing.isActive) {
+    throw new ApiError(409, 'An office location with that name already exists');
+  }
+  if (existing) {
+    // Reactivate a previously deleted (soft-deleted) location with the same name.
+    existing.isActive = true;
+    existing.latitude = data.latitude;
+    existing.longitude = data.longitude;
+    existing.radiusMeters = data.radiusMeters;
+    await existing.save();
+    return existing;
+  }
   return OfficeLocation.create({
     name: data.name,
     latitude: data.latitude,

@@ -3,7 +3,7 @@ import { usersApi } from '../api/users';
 import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
 import { holidaysApi } from '../api/holidays';
-import { Card, Badge, Spinner, Select, PasswordInput, MultiSelect } from '../components/ui';
+import { Card, Badge, Spinner, Select, PasswordInput, MultiSelect, ConfirmDialog } from '../components/ui';
 import LocationPickerModal from '../components/LocationPickerModal';
 import { useAuth } from '../auth/AuthContext';
 
@@ -51,11 +51,12 @@ function HolidaysAdmin() {
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({ date: '', name: '' });
   const [sort, setSort] = useState({ key: 'date', dir: 'asc' });
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      setHolidays(await holidaysApi.list({ includeInactive: true }));
+      setHolidays(await holidaysApi.list());
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to load');
     } finally {
@@ -149,7 +150,6 @@ function HolidaysAdmin() {
                     Name{arrow('name')}
                   </button>
                 </th>
-                <th className="py-2 pr-4">Active</th>
                 <th></th>
               </tr>
             </thead>
@@ -164,7 +164,6 @@ function HolidaysAdmin() {
                       <td className="py-2 pr-4">
                         <input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
                       </td>
-                      <td className="py-2 pr-4">{h.isActive ? 'Yes' : 'No'}</td>
                       <td className="py-2 pr-4 text-right whitespace-nowrap">
                         <span className="flex gap-3 justify-end">
                           <button onClick={() => saveEdit(h._id)} className="text-indigo-600 text-xs hover:underline">Save</button>
@@ -176,13 +175,10 @@ function HolidaysAdmin() {
                     <>
                       <td className="py-2 pr-4">{h.date}</td>
                       <td className="py-2 pr-4">{h.name}</td>
-                      <td className="py-2 pr-4">{h.isActive ? 'Yes' : 'No'}</td>
                       <td className="py-2 pr-4 text-right whitespace-nowrap">
                         <span className="flex gap-3 justify-end">
                           <button onClick={() => startEdit(h)} className="text-indigo-600 text-xs hover:underline">Edit</button>
-                          {h.isActive && (
-                            <button onClick={() => remove(h._id)} className="text-red-600 text-xs hover:underline">Delete</button>
-                          )}
+                          <button onClick={() => setPendingDelete(h)} className="text-red-600 text-xs hover:underline">Delete</button>
                         </span>
                       </td>
                     </>
@@ -193,6 +189,14 @@ function HolidaysAdmin() {
           </table>
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete holiday?"
+        message={pendingDelete ? `“${pendingDelete.name}” (${pendingDelete.date}) will be removed.` : ''}
+        onConfirm={async () => { await remove(pendingDelete._id); setPendingDelete(null); }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
@@ -211,6 +215,7 @@ function UsersAdmin() {
   });
   const [editUser, setEditUser] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', team: '', manager: '', officeLocations: [] });
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -336,7 +341,6 @@ function UsersAdmin() {
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">Role</th>
                 <th className="py-2 pr-4">Offices</th>
-                <th className="py-2 pr-4">Active</th>
                 <th></th>
               </tr>
             </thead>
@@ -349,7 +353,6 @@ function UsersAdmin() {
                   <td className="py-2 pr-4 text-slate-500">
                     {(u.officeLocations || []).map((id) => locName[id] || '—').join(', ') || '—'}
                   </td>
-                  <td className="py-2 pr-4">{u.isActive ? 'Yes' : 'No'}</td>
                   <td className="py-2 pr-4 text-right whitespace-nowrap">
                     <span className="flex gap-3 justify-end">
                       {u.role !== 'admin' && (
@@ -360,11 +363,9 @@ function UsersAdmin() {
                       {u._id === myId ? (
                         <span className="text-xs text-slate-400">You</span>
                       ) : (
-                        u.isActive && (
-                          <button onClick={() => deactivate(u._id)} className="text-red-600 text-xs hover:underline">
-                            Deactivate
-                          </button>
-                        )
+                        <button onClick={() => setPendingDelete(u)} className="text-red-600 text-xs hover:underline">
+                          Delete
+                        </button>
                       )}
                     </span>
                   </td>
@@ -418,6 +419,14 @@ function UsersAdmin() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete user?"
+        message={pendingDelete ? `“${pendingDelete.name}” (${pendingDelete.email}) will be removed.` : ''}
+        onConfirm={async () => { await deactivate(pendingDelete._id); setPendingDelete(null); }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
@@ -431,6 +440,7 @@ function TeamsAdmin() {
   const [form, setForm] = useState({ name: '', managers: [] });
   const [editId, setEditId] = useState(null);
   const [editManagers, setEditManagers] = useState([]);
+  const [editName, setEditName] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -471,12 +481,14 @@ function TeamsAdmin() {
   const startEdit = (t) => {
     setError('');
     setEditId(t._id);
+    setEditName(t.name);
     setEditManagers((t.managers || []).map((m) => m._id || m));
   };
   const saveEdit = async (id) => {
+    if (!editName.trim()) return setError('Team name is required');
     if (!editManagers.length) return setError('A team needs at least one manager');
     try {
-      await teamsApi.update(id, { managers: editManagers });
+      await teamsApi.update(id, { name: editName.trim(), managers: editManagers });
       setEditId(null);
       await load();
     } catch (e) {
@@ -524,7 +536,13 @@ function TeamsAdmin() {
             <tbody>
               {teams.map((t) => (
                 <tr key={t._id} className="border-b border-slate-50 align-top">
-                  <td className="py-2 pr-4 font-medium text-slate-700">{t.name}</td>
+                  <td className="py-2 pr-4 font-medium text-slate-700">
+                    {editId === t._id ? (
+                      <input value={editName} onChange={(e) => setEditName(e.target.value)} className={inputCls} />
+                    ) : (
+                      t.name
+                    )}
+                  </td>
                   <td className="py-2 pr-4">
                     {editId === t._id ? (
                       <div className="min-w-[16rem]">
@@ -546,7 +564,7 @@ function TeamsAdmin() {
                         <button onClick={() => setEditId(null)} className="text-slate-500 text-xs hover:underline">Cancel</button>
                       </span>
                     ) : (
-                      <button onClick={() => startEdit(t)} className="text-indigo-600 text-xs hover:underline">Edit managers</button>
+                      <button onClick={() => startEdit(t)} className="text-indigo-600 text-xs hover:underline">Edit</button>
                     )}
                   </td>
                 </tr>
@@ -566,11 +584,15 @@ function LocationsAdmin() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', latitude: '', longitude: '', radiusMeters: '' });
   const [showMap, setShowMap] = useState(false);
+  const [editLoc, setEditLoc] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', latitude: '', longitude: '', radiusMeters: '' });
+  const [editShowMap, setEditShowMap] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      setLocations(await locationsApi.list({ includeInactive: true }));
+      setLocations(await locationsApi.list());
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to load');
     } finally {
@@ -607,6 +629,33 @@ function LocationsAdmin() {
       await load();
     } catch (e) {
       setError(e.response?.data?.message || 'Failed');
+    }
+  };
+
+  const openEdit = (l) => {
+    setError('');
+    setEditLoc(l);
+    setEditForm({
+      name: l.name,
+      latitude: String(l.latitude),
+      longitude: String(l.longitude),
+      radiusMeters: String(l.radiusMeters),
+    });
+  };
+  const saveEdit = async () => {
+    setError('');
+    if (!editForm.name.trim()) return setError('Name is required');
+    const lat = Number(editForm.latitude);
+    const lng = Number(editForm.longitude);
+    const rad = Number(editForm.radiusMeters);
+    if (Number.isNaN(lat) || Number.isNaN(lng) || Number.isNaN(rad) || rad < 1)
+      return setError('Enter valid latitude, longitude and radius (≥1)');
+    try {
+      await locationsApi.update(editLoc._id, { name: editForm.name.trim(), latitude: lat, longitude: lng, radiusMeters: rad });
+      setEditLoc(null);
+      await load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Update failed');
     }
   };
 
@@ -654,7 +703,6 @@ function LocationsAdmin() {
                 <th className="py-2 pr-4">Lat</th>
                 <th className="py-2 pr-4">Lng</th>
                 <th className="py-2 pr-4">Radius</th>
-                <th className="py-2 pr-4">Active</th>
                 <th></th>
               </tr>
             </thead>
@@ -665,13 +713,13 @@ function LocationsAdmin() {
                   <td className="py-2 pr-4">{l.latitude}</td>
                   <td className="py-2 pr-4">{l.longitude}</td>
                   <td className="py-2 pr-4">{l.radiusMeters} m</td>
-                  <td className="py-2 pr-4">{l.isActive ? 'Yes' : 'No'}</td>
-                  <td className="py-2 pr-4 text-right">
-                    {l.isActive && (
-                      <button onClick={() => deactivate(l._id)} className="text-red-600 text-xs hover:underline">
-                        Deactivate
+                  <td className="py-2 pr-4 text-right whitespace-nowrap">
+                    <span className="flex gap-3 justify-end">
+                      <button onClick={() => openEdit(l)} className="text-indigo-600 text-xs hover:underline">Edit</button>
+                      <button onClick={() => setPendingDelete(l)} className="text-red-600 text-xs hover:underline">
+                        Delete
                       </button>
-                    )}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -679,6 +727,63 @@ function LocationsAdmin() {
           </table>
         </div>
       </Card>
+
+      {editLoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditLoc(null)}>
+          <div className="w-full max-w-md bg-white rounded-xl shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800">Edit {editLoc.name}</h2>
+              <button onClick={() => setEditLoc(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Name</label>
+                <input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className={inputCls + ' w-full'} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Latitude</label>
+                  <input value={editForm.latitude} onChange={(e) => setEditForm((f) => ({ ...f, latitude: e.target.value }))} className={inputCls + ' w-full'} />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Longitude</label>
+                  <input value={editForm.longitude} onChange={(e) => setEditForm((f) => ({ ...f, longitude: e.target.value }))} className={inputCls + ' w-full'} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Radius (m)</label>
+                <input value={editForm.radiusMeters} onChange={(e) => setEditForm((f) => ({ ...f, radiusMeters: e.target.value }))} className={inputCls + ' w-full'} />
+              </div>
+              <button type="button" onClick={() => setEditShowMap(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                📍 Choose on map
+              </button>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-100">
+              <button onClick={() => setEditLoc(null)} className="text-sm rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button onClick={saveEdit} className={btnCls}>Save changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editShowMap && (
+        <LocationPickerModal
+          initial={{ latitude: editForm.latitude, longitude: editForm.longitude }}
+          onPick={({ latitude, longitude }) => {
+            setEditForm((f) => ({ ...f, latitude: String(latitude), longitude: String(longitude) }));
+            setEditShowMap(false);
+          }}
+          onClose={() => setEditShowMap(false)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete office location?"
+        message={pendingDelete ? `“${pendingDelete.name}” will be removed.` : ''}
+        onConfirm={async () => { await deactivate(pendingDelete._id); setPendingDelete(null); }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

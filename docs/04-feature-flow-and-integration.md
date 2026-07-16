@@ -119,10 +119,14 @@ Read-only, org-wide. Sees all teams.
 `login → /admin` (4 tabs):
 ```
 Users            create (role, team, manager, office multi-select)
-                 / edit name·team·manager·offices (non-admin, modal) / deactivate (not self)
-Teams            create (managers multi-select ≥1) / edit managers inline (multi-select)
-Office Locations create (map picker) / deactivate
-Holidays         add / soft-delete
+                 / edit name·team·manager·offices (non-admin, modal) / delete (not self)
+Teams            create (managers multi-select ≥1) / edit name + managers inline
+Office Locations create (map picker) / edit name·lat·lng·radius (manual or map) / delete
+Holidays         add / edit / delete
+
+Delete everywhere = soft-delete (isActive:false), confirmed via a dialog, and the row is
+removed from the list (no "Active" column). Re-creating an office/holiday with a deleted
+name/date reactivates the old record.
 ```
 
 ---

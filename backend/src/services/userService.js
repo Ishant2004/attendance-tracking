@@ -11,7 +11,7 @@ function assertCanView(requester, target) {
 }
 
 async function listUsers(requester, filters = {}) {
-  const query = {};
+  const query = { isActive: true }; // deleted (deactivated) users are hidden
   if (filters.team) query.team = filters.team;
   if (filters.role) query.role = filters.role;
 

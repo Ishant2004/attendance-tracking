@@ -1,5 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 
+// Confirmation modal for destructive actions.
+export function ConfirmDialog({ open, title = 'Are you sure?', message, confirmLabel = 'Delete', onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-5" onClick={(e) => e.stopPropagation()}>
+        <h2 className="font-semibold text-slate-800">{title}</h2>
+        {message && <p className="text-sm text-slate-600 mt-1">{message}</p>}
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onCancel} className="text-sm rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button onClick={onConfirm} className="text-sm rounded-lg bg-red-600 text-white px-4 py-1.5 font-medium hover:bg-red-700">
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Multi-select dropdown: a control that shows selected items as removable tags and
 // opens a searchable, checkable option list. `options` = [{ value, label }].
 export function MultiSelect({ options, selected, onChange, placeholder = 'Select…' }) {
