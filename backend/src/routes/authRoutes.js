@@ -17,4 +17,13 @@ router.post('/refresh', body('refreshToken').isString().notEmpty(), validate, ct
 router.post('/logout', auth, ctrl.logout);
 router.get('/me', auth, ctrl.me);
 
+router.post(
+  '/change-password',
+  auth,
+  body('currentPassword').isString().notEmpty(),
+  body('newPassword').isLength({ min: 6 }),
+  validate,
+  ctrl.changePassword
+);
+
 module.exports = router;

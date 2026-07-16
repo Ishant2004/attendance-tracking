@@ -3,7 +3,7 @@ import { usersApi } from '../api/users';
 import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
 import { holidaysApi } from '../api/holidays';
-import { Card, Badge, Spinner, Select } from '../components/ui';
+import { Card, Badge, Spinner, Select, PasswordInput } from '../components/ui';
 
 const inputCls =
   'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
@@ -206,7 +206,7 @@ function UsersAdmin() {
         <form onSubmit={submit} className="grid md:grid-cols-3 gap-3">
           <input required placeholder="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
           <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
-          <input required type="password" placeholder="Password (min 6)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={inputCls} />
+          <PasswordInput required placeholder="Password (min 6)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
           <Select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
             <option value="employee">employee</option>
             <option value="manager">manager</option>

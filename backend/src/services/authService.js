@@ -20,6 +20,21 @@ async function login(email, password) {
   };
 }
 
+async function changePassword(userId, currentPassword, newPassword) {
+  const user = await User.findById(userId).select('+passwordHash');
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const ok = await user.comparePassword(currentPassword);
+  if (!ok) throw new ApiError(401, 'Current password is incorrect');
+
+  if (await user.comparePassword(newPassword)) {
+    throw new ApiError(400, 'New password must be different from the current one');
+  }
+
+  user.password = newPassword; // hashed by the pre('validate') hook
+  await user.save();
+}
+
 async function refresh(refreshToken) {
   if (!refreshToken) throw new ApiError(400, 'refreshToken required');
   let payload;
@@ -34,4 +49,4 @@ async function refresh(refreshToken) {
   return { accessToken: signAccessToken(user) };
 }
 
-module.exports = { login, refresh };
+module.exports = { login, refresh, changePassword };

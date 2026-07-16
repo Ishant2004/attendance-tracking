@@ -106,7 +106,7 @@ export default function MyAttendance() {
 
         <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />
-          Enter location manually (for testing WFO/WFH)
+          Enter location manually
         </label>
         {manual && (
           <div className="mt-2 flex gap-2">

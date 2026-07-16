@@ -71,12 +71,12 @@ export default function Layout() {
               <span className={`inline-block w-2 h-2 rounded-full ${trackDot}`} />
               {trackLabel}
             </span>
-            <span className="text-sm text-slate-600 flex items-center">
+            <NavLink to="/change-password" className="text-sm text-slate-600 flex items-center hover:text-indigo-600" title="Change password">
               {user.name}
               <span className="ml-2 inline-block rounded bg-slate-100 text-slate-500 px-2 py-0.5 text-xs">
                 {user.role}
               </span>
-            </span>
+            </NavLink>
             <button
               onClick={handleLogout}
               className="text-sm rounded-md bg-slate-800 text-white px-3 py-1.5 hover:bg-slate-700"
