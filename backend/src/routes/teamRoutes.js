@@ -9,12 +9,16 @@ const router = express.Router();
 
 router.get('/', auth, authorize('leadership', 'admin'), ctrl.list);
 
+// Teams the caller manages — must be registered before "/:id".
+router.get('/managed', auth, authorize('manager', 'leadership', 'admin'), ctrl.managed);
+
 router.post(
   '/',
   auth,
   authorize('admin'),
   body('name').isString().notEmpty(),
-  body('manager').optional().isMongoId(),
+  body('managers').isArray({ min: 1 }).withMessage('At least one manager is required'),
+  body('managers.*').isMongoId(),
   validate,
   ctrl.create
 );
@@ -26,7 +30,8 @@ router.put(
   auth,
   authorize('admin'),
   body('name').optional().isString().notEmpty(),
-  body('manager').optional().isMongoId(),
+  body('managers').optional().isArray({ min: 1 }).withMessage('At least one manager is required'),
+  body('managers.*').optional().isMongoId(),
   validate,
   ctrl.update
 );

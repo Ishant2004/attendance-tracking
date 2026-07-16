@@ -1,4 +1,82 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+
+// Multi-select dropdown: a control that shows selected items as removable tags and
+// opens a searchable, checkable option list. `options` = [{ value, label }].
+export function MultiSelect({ options, selected, onChange, placeholder = 'Select…' }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const toggle = (value) =>
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  const labelOf = (v) => options.find((o) => o.value === v)?.label || v;
+  const filtered = options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full min-h-[2.5rem] rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-left flex flex-wrap gap-1 items-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+        {selected.length === 0 && <span className="text-slate-400 px-1">{placeholder}</span>}
+        {selected.map((v) => (
+          <span key={v} className="inline-flex items-center gap-1 rounded bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs">
+            {labelOf(v)}
+            <span
+              onClick={(e) => { e.stopPropagation(); toggle(v); }}
+              className="cursor-pointer text-indigo-400 hover:text-indigo-700"
+            >
+              ×
+            </span>
+          </span>
+        ))}
+        <svg className="ml-auto w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="p-2 border-b border-slate-100">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search…"
+              className="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+          </div>
+          <ul className="max-h-52 overflow-auto py-1">
+            {filtered.length === 0 && <li className="px-3 py-2 text-sm text-slate-400">No matches</li>}
+            {filtered.map((o) => {
+              const on = selected.includes(o.value);
+              return (
+                <li key={o.value}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(o.value)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-slate-50 ${on ? 'text-indigo-700' : 'text-slate-700'}`}
+                  >
+                    <input type="checkbox" readOnly checked={on} className="pointer-events-none" />
+                    {o.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Password field with a show/hide eye toggle.
 export function PasswordInput({ value, onChange, className = '', ...props }) {

@@ -6,6 +6,11 @@ const list = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { teams } });
 });
 
+const managed = asyncHandler(async (req, res) => {
+  const teams = await teamService.listManagedTeams(req.user);
+  res.json({ success: true, data: { teams } });
+});
+
 const get = asyncHandler(async (req, res) => {
   const team = await teamService.getTeamById(req.user, req.params.id);
   res.json({ success: true, data: { team } });
@@ -26,4 +31,4 @@ const members = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { members: users } });
 });
 
-module.exports = { list, get, create, update, members };
+module.exports = { list, managed, get, create, update, members };

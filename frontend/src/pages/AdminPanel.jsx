@@ -3,7 +3,7 @@ import { usersApi } from '../api/users';
 import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
 import { holidaysApi } from '../api/holidays';
-import { Card, Badge, Spinner, Select, PasswordInput } from '../components/ui';
+import { Card, Badge, Spinner, Select, PasswordInput, MultiSelect } from '../components/ui';
 import LocationPickerModal from '../components/LocationPickerModal';
 import { useAuth } from '../auth/AuthContext';
 
@@ -226,34 +226,13 @@ function UsersAdmin() {
             {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
           </Select>
           <div className="md:col-span-3">
-            <label className="block text-xs text-slate-500 mb-1">Assigned offices Tap to toggle</label>
-            <div className="flex flex-wrap gap-2">
-              {locations.map((l) => {
-                const on = form.officeLocations.includes(l._id);
-                return (
-                  <button
-                    type="button"
-                    key={l._id}
-                    onClick={() =>
-                      setForm((f) => ({
-                        ...f,
-                        officeLocations: on
-                          ? f.officeLocations.filter((x) => x !== l._id)
-                          : [...f.officeLocations, l._id],
-                      }))
-                    }
-                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                      on
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    {l.name}
-                  </button>
-                );
-              })}
-              {locations.length === 0 && <span className="text-sm text-slate-400">No offices yet</span>}
-            </div>
+            <label className="block text-xs text-slate-500 mb-1">Assigned offices (WFO)</label>
+            <MultiSelect
+              options={locations.map((l) => ({ value: l._id, label: l.name }))}
+              selected={form.officeLocations}
+              onChange={(vals) => setForm((f) => ({ ...f, officeLocations: vals }))}
+              placeholder="Select offices…"
+            />
           </div>
           <div className="md:col-span-3">
             <button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create user'}</button>
@@ -311,7 +290,9 @@ function TeamsAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', manager: '' });
+  const [form, setForm] = useState({ name: '', managers: [] });
+  const [editId, setEditId] = useState(null);
+  const [editManagers, setEditManagers] = useState([]);
 
   const load = async () => {
     setLoading(true);
@@ -329,15 +310,18 @@ function TeamsAdmin() {
     load();
   }, []);
 
+  const managers = users.filter((u) => ['manager', 'leadership'].includes(u.role));
+  const managerName = Object.fromEntries(users.map((u) => [u._id, u.name]));
+  const managerOptions = managers.map((m) => ({ value: m._id, label: `${m.name} (${m.role})` }));
+
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!form.managers.length) return setError('Select at least one manager');
     setSaving(true);
     try {
-      const body = { name: form.name };
-      if (form.manager) body.manager = form.manager;
-      await teamsApi.create(body);
-      setForm({ name: '', manager: '' });
+      await teamsApi.create({ name: form.name, managers: form.managers });
+      setForm({ name: '', managers: [] });
       await load();
     } catch (e) {
       setError(e.response?.data?.message || 'Create failed');
@@ -346,40 +330,92 @@ function TeamsAdmin() {
     }
   };
 
-  const managers = users.filter((u) => ['manager', 'leadership', 'admin'].includes(u.role));
+  const startEdit = (t) => {
+    setError('');
+    setEditId(t._id);
+    setEditManagers((t.managers || []).map((m) => m._id || m));
+  };
+  const saveEdit = async (id) => {
+    if (!editManagers.length) return setError('A team needs at least one manager');
+    try {
+      await teamsApi.update(id, { managers: editManagers });
+      setEditId(null);
+      await load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Update failed');
+    }
+  };
+
   if (loading) return <Spinner />;
 
   return (
     <div className="space-y-4">
       {error && <div className="rounded bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
       <Card title="Create team">
-        <form onSubmit={submit} className="grid md:grid-cols-3 gap-3">
-          <input required placeholder="Team name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
-          <Select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))}>
-            <option value="">No manager</option>
-            {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
-          </Select>
-          <div><button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create team'}</button></div>
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            required
+            placeholder="Team name"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            className={inputCls + ' w-full md:w-1/2'}
+          />
+          <div className="md:w-1/2">
+            <label className="block text-xs text-slate-500 mb-1">Managers (at least one)</label>
+            <MultiSelect
+              options={managerOptions}
+              selected={form.managers}
+              onChange={(vals) => setForm((f) => ({ ...f, managers: vals }))}
+              placeholder="Select managers…"
+            />
+          </div>
+          <button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create team'}</button>
         </form>
       </Card>
 
       <Card title={`Teams (${teams.length})`}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-500 border-b border-slate-100">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Manager</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teams.map((t) => (
-              <tr key={t._id} className="border-b border-slate-50">
-                <td className="py-2 pr-4 font-medium text-slate-700">{t.name}</td>
-                <td className="py-2 pr-4">{t.manager?.name || '—'}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-100">
+                <th className="py-2 pr-4">Name</th>
+                <th className="py-2 pr-4">Managers</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {teams.map((t) => (
+                <tr key={t._id} className="border-b border-slate-50 align-top">
+                  <td className="py-2 pr-4 font-medium text-slate-700">{t.name}</td>
+                  <td className="py-2 pr-4">
+                    {editId === t._id ? (
+                      <div className="min-w-[16rem]">
+                        <MultiSelect
+                          options={managerOptions}
+                          selected={editManagers}
+                          onChange={setEditManagers}
+                          placeholder="Select managers…"
+                        />
+                      </div>
+                    ) : (
+                      (t.managers || []).map((m) => m.name || managerName[m] || '—').join(', ') || '—'
+                    )}
+                  </td>
+                  <td className="py-2 pr-4 text-right whitespace-nowrap">
+                    {editId === t._id ? (
+                      <span className="flex gap-3 justify-end">
+                        <button onClick={() => saveEdit(t._id)} className="text-indigo-600 text-xs hover:underline">Save</button>
+                        <button onClick={() => setEditId(null)} className="text-slate-500 text-xs hover:underline">Cancel</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => startEdit(t)} className="text-indigo-600 text-xs hover:underline">Edit managers</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );

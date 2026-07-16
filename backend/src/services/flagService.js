@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Team = require('../models/Team');
 const ApiError = require('../utils/ApiError');
 const { assertCanView } = require('./userService');
+const { isManagerOf } = require('./teamService');
 
 const THRESHOLDS = { lateCount: 3, absenceCount: 3, lowWfoRatio: 0.2, irregularCount: 3 };
 
@@ -112,7 +113,7 @@ async function getUserFlags(requester, userId) {
 async function getTeamFlags(requester, teamId) {
   const team = await Team.findById(teamId);
   if (!team) throw new ApiError(404, 'Team not found');
-  if (requester.role === 'manager' && String(team.manager) !== requester.id) {
+  if (requester.role === 'manager' && !isManagerOf(team, requester.id)) {
     throw new ApiError(403, 'Forbidden');
   }
   const userIds = (await User.find({ team: teamId }).select('_id')).map((u) => u._id);

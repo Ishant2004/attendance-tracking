@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Team = require('../models/Team');
 const ApiError = require('../utils/ApiError');
 const { assertCanView } = require('./userService');
+const { isManagerOf } = require('./teamService');
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -52,7 +53,7 @@ async function individual(requester, userId, range) {
 async function team(requester, teamId, range) {
   const t = await Team.findById(teamId);
   if (!t) throw new ApiError(404, 'Team not found');
-  if (requester.role === 'manager' && String(t.manager) !== requester.id) throw new ApiError(403, 'Forbidden');
+  if (requester.role === 'manager' && !isManagerOf(t, requester.id)) throw new ApiError(403, 'Forbidden');
 
   const { start, end } = parseRange(range);
   const members = await User.find({ team: teamId, isActive: true }).select('name email');
@@ -105,7 +106,7 @@ async function resolveScope(requester, { userId, teamId }) {
   if (teamId) {
     const t = await Team.findById(teamId);
     if (!t) throw new ApiError(404, 'Team not found');
-    if (requester.role === 'manager' && String(t.manager) !== requester.id) throw new ApiError(403, 'Forbidden');
+    if (requester.role === 'manager' && !isManagerOf(t, requester.id)) throw new ApiError(403, 'Forbidden');
     const ids = (await User.find({ team: teamId }).select('_id')).map((u) => u._id);
     return { scope: 'team', userIds: ids };
   }
