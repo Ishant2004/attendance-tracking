@@ -5,7 +5,7 @@ import { getCurrentPosition } from '../utils/geo';
 
 const round = (n) => Number(n.toFixed(6));
 
-// Click on the map (or use current location) to drop a pin; returns { latitude, longitude }.
+// Click the map, search a place, or use current location to pick coords → { latitude, longitude }.
 export default function LocationPickerModal({ initial, onPick, onClose }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -15,6 +15,10 @@ export default function LocationPickerModal({ initial, onPick, onClose }) {
       ? { latitude: Number(initial.latitude), longitude: Number(initial.longitude) }
       : null
   );
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
     const start = coords ? [coords.latitude, coords.longitude] : [12.9716, 77.5946]; // default: Bangalore
@@ -51,22 +55,53 @@ export default function LocationPickerModal({ initial, onPick, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Move the map + pin to a coordinate.
+  const goTo = (lat, lng, zoom = 16) => {
+    const rlat = round(lat);
+    const rlng = round(lng);
+    setCoords({ latitude: rlat, longitude: rlng });
+    const map = mapRef.current;
+    map.setView([rlat, rlng], zoom);
+    if (markerRef.current) markerRef.current.setLatLng([rlat, rlng]);
+    else
+      markerRef.current = L.circleMarker([rlat, rlng], {
+        radius: 9, color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.85, weight: 2,
+      }).addTo(map);
+  };
+
   const useMyLocation = async () => {
     try {
       const { latitude, longitude } = await getCurrentPosition();
-      const lat = round(latitude);
-      const lng = round(longitude);
-      setCoords({ latitude: lat, longitude: lng });
-      const map = mapRef.current;
-      map.setView([lat, lng], 16);
-      if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
-      else
-        markerRef.current = L.circleMarker([lat, lng], {
-          radius: 9, color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.85, weight: 2,
-        }).addTo(map);
+      goTo(latitude, longitude, 16);
     } catch {
       /* ignore — user can still click the map */
     }
+  };
+
+  const search = async (e) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearched(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(q)}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      setResults(res.ok ? await res.json() : []);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const selectResult = (r) => {
+    goTo(Number(r.lat), Number(r.lon), 16);
+    setResults([]);
+    setSearched(false);
+    setQuery(r.display_name.split(',')[0]);
   };
 
   return (
@@ -77,7 +112,41 @@ export default function LocationPickerModal({ initial, onPick, onClose }) {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
         </div>
 
-        <div ref={containerRef} style={{ height: "70vh", width: '100%' }} />
+        {/* Search */}
+        <div className="px-5 py-2 border-b border-slate-100 relative">
+          <form onSubmit={search} className="flex gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search a place or address…"
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button type="submit" disabled={searching} className="rounded-lg bg-indigo-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60">
+              {searching ? 'Searching…' : 'Search'}
+            </button>
+          </form>
+          {(results.length > 0 || (searched && !searching)) && (
+            <ul className="absolute left-5 right-5 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto z-[1000]">
+              {results.length === 0 ? (
+                <li className="px-3 py-2 text-sm text-slate-400">No matches</li>
+              ) : (
+                results.map((r) => (
+                  <li key={r.place_id}>
+                    <button
+                      type="button"
+                      onClick={() => selectResult(r)}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      {r.display_name}
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+        </div>
+
+        <div ref={containerRef} style={{ height: '60vh', width: '100%' }} />
 
         <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-t border-slate-100">
           <button

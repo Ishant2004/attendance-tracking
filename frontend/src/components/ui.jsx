@@ -1,5 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 
+// Sortable table column header. Wire with the `useSort` hook: pass `sort` and `onSort`.
+export function SortHeader({ label, sortKey, sort, onSort, className = 'py-2 pr-4' }) {
+  const active = sort.key === sortKey;
+  return (
+    <th className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-slate-700"
+      >
+        {label}
+        <span className="text-slate-400 w-2">{active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
+      </button>
+    </th>
+  );
+}
+
 // Confirmation modal for destructive actions.
 export function ConfirmDialog({ open, title = 'Are you sure?', message, confirmLabel = 'Delete', onConfirm, onCancel }) {
   if (!open) return null;

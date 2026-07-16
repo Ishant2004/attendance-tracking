@@ -3,8 +3,9 @@ import { useAuth } from '../auth/AuthContext';
 import { attendanceApi } from '../api/attendance';
 import { flagsApi } from '../api/flags';
 import { getCurrentPosition } from '../utils/geo';
-import { Card, Badge, Spinner } from '../components/ui';
+import { Card, Badge, Spinner, SortHeader } from '../components/ui';
 import { flagLabel, flagDetail } from '../utils/flagFormat';
+import { useSort } from '../hooks/useSort';
 
 const fmt = (dt) => (dt ? new Date(dt).toLocaleString() : '—');
 const fmtDate = (dt) => (dt ? new Date(dt).toLocaleDateString() : '—');
@@ -21,6 +22,7 @@ export default function MyAttendance() {
   const [error, setError] = useState('');
   const [manual, setManual] = useState(false);
   const [coords, setCoords] = useState({ latitude: '', longitude: '' });
+  const { sort, toggle, sortRows } = useSort('date', 'desc');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,16 +142,23 @@ export default function MyAttendance() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500 border-b border-slate-100">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Check in</th>
-                  <th className="py-2 pr-4">Check out</th>
-                  <th className="py-2 pr-4">Hours</th>
-                  <th className="py-2 pr-4">Late</th>
+                  <SortHeader label="Date" sortKey="date" sort={sort} onSort={toggle} />
+                  <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggle} />
+                  <SortHeader label="Check in" sortKey="checkIn" sort={sort} onSort={toggle} />
+                  <SortHeader label="Check out" sortKey="checkOut" sort={sort} onSort={toggle} />
+                  <SortHeader label="Hours" sortKey="hours" sort={sort} onSort={toggle} />
+                  <SortHeader label="Late" sortKey="late" sort={sort} onSort={toggle} />
                 </tr>
               </thead>
               <tbody>
-                {records.map((r) => (
+                {sortRows(records, {
+                  date: (r) => new Date(r.date).getTime(),
+                  status: (r) => r.status,
+                  checkIn: (r) => (r.checkInTime ? new Date(r.checkInTime).getTime() : null),
+                  checkOut: (r) => (r.checkOutTime ? new Date(r.checkOutTime).getTime() : null),
+                  hours: (r) => r.totalHours ?? 0,
+                  late: (r) => (r.isLate ? 1 : 0),
+                }).map((r) => (
                   <tr key={r._id} className="border-b border-slate-50">
                     <td className="py-2 pr-4">{fmtDate(r.date)}</td>
                     <td className="py-2 pr-4"><Badge tone={r.status}>{r.status}</Badge></td>

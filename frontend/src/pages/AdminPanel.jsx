@@ -3,9 +3,10 @@ import { usersApi } from '../api/users';
 import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
 import { holidaysApi } from '../api/holidays';
-import { Card, Badge, Spinner, Select, PasswordInput, MultiSelect, ConfirmDialog } from '../components/ui';
+import { Card, Badge, Spinner, Select, PasswordInput, MultiSelect, ConfirmDialog, SortHeader } from '../components/ui';
 import LocationPickerModal from '../components/LocationPickerModal';
 import { useAuth } from '../auth/AuthContext';
+import { useSort } from '../hooks/useSort';
 
 const inputCls =
   'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
@@ -216,6 +217,7 @@ function UsersAdmin() {
   const [editUser, setEditUser] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', team: '', manager: '', officeLocations: [] });
   const [pendingDelete, setPendingDelete] = useState(null);
+  const { sort, toggle, sortRows } = useSort('name');
 
   const load = async () => {
     setLoading(true);
@@ -337,15 +339,19 @@ function UsersAdmin() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="py-2 pr-4">Name</th>
+                <SortHeader label="Name" sortKey="name" sort={sort} onSort={toggle} />
                 <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Offices</th>
+                <SortHeader label="Role" sortKey="role" sort={sort} onSort={toggle} />
+                <SortHeader label="Offices" sortKey="offices" sort={sort} onSort={toggle} />
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {sortRows(users, {
+                name: (u) => u.name,
+                role: (u) => u.role,
+                offices: (u) => (u.officeLocations || []).map((id) => locName[id] || '').join(', '),
+              }).map((u) => (
                 <tr key={u._id} className="border-b border-slate-50">
                   <td className="py-2 pr-4">{u.name}</td>
                   <td className="py-2 pr-4">{u.email}</td>
@@ -441,6 +447,7 @@ function TeamsAdmin() {
   const [editId, setEditId] = useState(null);
   const [editManagers, setEditManagers] = useState([]);
   const [editName, setEditName] = useState('');
+  const { sort, toggle, sortRows } = useSort('name');
 
   const load = async () => {
     setLoading(true);
@@ -528,13 +535,13 @@ function TeamsAdmin() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="py-2 pr-4">Name</th>
+                <SortHeader label="Name" sortKey="name" sort={sort} onSort={toggle} />
                 <th className="py-2 pr-4">Managers</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {teams.map((t) => (
+              {sortRows(teams, { name: (t) => t.name }).map((t) => (
                 <tr key={t._id} className="border-b border-slate-50 align-top">
                   <td className="py-2 pr-4 font-medium text-slate-700">
                     {editId === t._id ? (
@@ -588,6 +595,7 @@ function LocationsAdmin() {
   const [editForm, setEditForm] = useState({ name: '', latitude: '', longitude: '', radiusMeters: '' });
   const [editShowMap, setEditShowMap] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const { sort, toggle, sortRows } = useSort('name');
 
   const load = async () => {
     setLoading(true);
@@ -699,15 +707,15 @@ function LocationsAdmin() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="py-2 pr-4">Name</th>
+                <SortHeader label="Name" sortKey="name" sort={sort} onSort={toggle} />
                 <th className="py-2 pr-4">Lat</th>
                 <th className="py-2 pr-4">Lng</th>
-                <th className="py-2 pr-4">Radius</th>
+                <SortHeader label="Radius" sortKey="radius" sort={sort} onSort={toggle} />
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {locations.map((l) => (
+              {sortRows(locations, { name: (l) => l.name, radius: (l) => l.radiusMeters }).map((l) => (
                 <tr key={l._id} className="border-b border-slate-50">
                   <td className="py-2 pr-4 font-medium text-slate-700">{l.name}</td>
                   <td className="py-2 pr-4">{l.latitude}</td>
