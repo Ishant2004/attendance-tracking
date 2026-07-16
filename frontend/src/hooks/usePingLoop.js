@@ -4,8 +4,8 @@ import { getCurrentPosition } from '../utils/geo';
 
 const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
-// Passive geo-fencing: while enabled and the tab is visible, POST a location
-// ping now and every 5 min. Returns a status for the UI indicator.
+// Passive geo-fencing: one location ping when the user logs in, then every 15 minutes.
+// It is NOT tied to check-in/out or tab focus — those never trigger a ping.
 export function usePingLoop(enabled) {
   const [state, setState] = useState('idle'); // idle | active | denied | error | unsupported
 
@@ -16,14 +16,13 @@ export function usePingLoop(enabled) {
       return undefined;
     }
 
-    // Effect-local (not refs): each mount cycle gets its own flags, so React
-    // StrictMode's double-invoke can't leave a stale in-flight guard set.
+    // Effect-local flags (not refs) so React StrictMode's double-invoke can't
+    // leave a stale in-flight guard set.
     let cancelled = false;
     let inFlight = false;
-    let timer = null;
 
     const ping = async () => {
-      if (document.visibilityState !== 'visible' || inFlight) return;
+      if (document.visibilityState !== 'visible' || inFlight) return; // skip background-tab ticks
       inFlight = true;
       try {
         const coords = await getCurrentPosition();
@@ -37,23 +36,12 @@ export function usePingLoop(enabled) {
       }
     };
 
-    const start = () => {
-      ping(); // immediate ping on start/resume
-      clearInterval(timer);
-      timer = setInterval(ping, PING_INTERVAL_MS);
-    };
+    ping(); // once, on login
+    const timer = setInterval(ping, PING_INTERVAL_MS); // then every 15 min
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') start();
-      else clearInterval(timer);
-    };
-
-    start();
-    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
       clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [enabled]);
 
