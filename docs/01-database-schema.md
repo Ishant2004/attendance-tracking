@@ -32,7 +32,7 @@ Everyone — employees, managers, leadership, admins — in one collection, spli
 | `role` | String (enum) | `employee` \| `manager` \| `leadership` \| `admin` (default `employee`) | drives access control |
 | `team` | ObjectId → `Team` | nullable | the team the user **belongs to** (membership) |
 | `manager` | ObjectId → `User` | nullable | the user's **reporting manager** (self-reference) — used for "my reports" scoping |
-| `officeLocations` | [ObjectId → `OfficeLocation`] | array, may be empty | offices where this user is counted **WFO**. Empty ⇒ always WFH |
+| `officeLocations` | [ObjectId → `OfficeLocation`] | **≥1 required for non-admin** (API-enforced on create & update) | offices where this user is counted **WFO**. Empty (admin-only) ⇒ always WFH |
 | `isActive` | Boolean | default `true` | soft-delete flag (deactivated users can't log in) |
 | `createdAt` / `updatedAt` | Date | auto | |
 

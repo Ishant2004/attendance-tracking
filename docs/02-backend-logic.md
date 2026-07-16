@@ -117,8 +117,8 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 |---|---|---|---|
 | GET | `/` | manager/leadership/admin | list (role-scoped; manager → reports+self) |
 | GET | `/:id` | self/manager/leadership/admin | one user |
-| POST | `/` | admin | create (name,email,password,role,team?,manager?,officeLocations?) |
-| PUT | `/:id` | admin (any fields) / self (name,password) | update |
+| POST | `/` | admin | create (name,email,password,role,team?,manager?,officeLocations) — **≥1 office required for non-admin roles** |
+| PUT | `/:id` | admin (any fields) / self (name,password) | update — team/manager may be cleared (null); **offices can't be emptied for non-admin** |
 | DELETE | `/:id` | admin | soft-deactivate (**cannot deactivate self** → 400) |
 | GET | `/:id/team` | self/manager/leadership/admin | user's team (populated) |
 

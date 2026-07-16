@@ -88,7 +88,7 @@ refresh fails ──► clear tokens ──► /login
 - **TeamDashboard** (`/team`, managers): loads **teams you manage** (`/teams/managed`); **team switcher** if >1; summary tiles + per-member table + team flags with **Resolve**. Friendly notice if you manage none.
 - **LeadershipDashboard** (`/leadership`): org stat tiles + **Recharts** trend line (WFO/WFH/Absent/Late) + team-comparison bars + teams table.
 - **AdminPanel** (`/admin`): four tabs —
-  - **Users**: create (role/team/manager `Select`s + **office `MultiSelect`**), list (own row shows "You", others "Deactivate").
+  - **Users**: create (role/team/manager `Select`s + **office `MultiSelect`**); list with **Edit** (a modal to change name / team / manager / assigned offices — shown for employee/manager/leadership, not admin) and **Deactivate** (own row shows "You").
   - **Teams**: create (name + **manager `MultiSelect`**, ≥1), list with **Edit managers** (inline `MultiSelect` + Save).
   - **Office Locations**: create (name/lat/lng/radius) + **📍 Choose location** map picker; list + deactivate.
   - **Holidays**: add (date+name), list, soft-delete.

@@ -118,7 +118,8 @@ Read-only, org-wide. Sees all teams.
 ### Admin
 `login → /admin` (4 tabs):
 ```
-Users            create (role, team, manager, office multi-select) / deactivate (not self)
+Users            create (role, team, manager, office multi-select)
+                 / edit name·team·manager·offices (non-admin, modal) / deactivate (not self)
 Teams            create (managers multi-select ≥1) / edit managers inline (multi-select)
 Office Locations create (map picker) / deactivate
 Holidays         add / soft-delete

@@ -209,7 +209,8 @@ function UsersAdmin() {
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'employee', team: '', manager: '', officeLocations: [],
   });
-
+  const [editUser, setEditUser] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', team: '', manager: '', officeLocations: [] });
 
   const load = async () => {
     setLoading(true);
@@ -231,12 +232,13 @@ function UsersAdmin() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (form.role !== 'admin' && form.officeLocations.length === 0)
+      return setError('At least one assigned office is required');
     setSaving(true);
     try {
       const body = { ...form };
       if (!body.team) delete body.team;
       if (!body.manager) delete body.manager;
-      if (!body.officeLocations?.length) delete body.officeLocations;
       await usersApi.create(body);
       setForm({ name: '', email: '', password: '', role: 'employee', team: '', manager: '', officeLocations: [] });
       await load();
@@ -253,6 +255,34 @@ function UsersAdmin() {
       await load();
     } catch (e) {
       setError(e.response?.data?.message || 'Failed');
+    }
+  };
+
+  const openEdit = (u) => {
+    setError('');
+    setEditUser(u);
+    setEditForm({
+      name: u.name || '',
+      team: u.team || '',
+      manager: u.manager || '',
+      officeLocations: u.officeLocations || [],
+    });
+  };
+  const saveEdit = async () => {
+    setError('');
+    if (editUser.role !== 'admin' && editForm.officeLocations.length === 0)
+      return setError('At least one assigned office is required');
+    try {
+      await usersApi.update(editUser._id, {
+        name: editForm.name,
+        team: editForm.team || null,
+        manager: editForm.manager || null,
+        officeLocations: editForm.officeLocations,
+      });
+      setEditUser(null);
+      await load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Update failed');
     }
   };
 
@@ -320,16 +350,23 @@ function UsersAdmin() {
                     {(u.officeLocations || []).map((id) => locName[id] || '—').join(', ') || '—'}
                   </td>
                   <td className="py-2 pr-4">{u.isActive ? 'Yes' : 'No'}</td>
-                  <td className="py-2 pr-4 text-right">
-                    {u._id === myId ? (
-                      <span className="text-xs text-slate-400">You</span>
-                    ) : (
-                      u.isActive && (
-                        <button onClick={() => deactivate(u._id)} className="text-red-600 text-xs hover:underline">
-                          Deactivate
+                  <td className="py-2 pr-4 text-right whitespace-nowrap">
+                    <span className="flex gap-3 justify-end">
+                      {u.role !== 'admin' && (
+                        <button onClick={() => openEdit(u)} className="text-indigo-600 text-xs hover:underline">
+                          Edit
                         </button>
-                      )
-                    )}
+                      )}
+                      {u._id === myId ? (
+                        <span className="text-xs text-slate-400">You</span>
+                      ) : (
+                        u.isActive && (
+                          <button onClick={() => deactivate(u._id)} className="text-red-600 text-xs hover:underline">
+                            Deactivate
+                          </button>
+                        )
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -337,6 +374,50 @@ function UsersAdmin() {
           </table>
         </div>
       </Card>
+
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditUser(null)}>
+          <div className="w-full max-w-md bg-white rounded-xl shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800">Edit {editUser.name}</h2>
+              <button onClick={() => setEditUser(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Name</label>
+                <input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className={inputCls + ' w-full'} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Team</label>
+                <Select value={editForm.team} onChange={(e) => setEditForm((f) => ({ ...f, team: e.target.value }))}>
+                  <option value="">No team</option>
+                  {teams.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Manager</label>
+                <Select value={editForm.manager} onChange={(e) => setEditForm((f) => ({ ...f, manager: e.target.value }))}>
+                  <option value="">No manager</option>
+                  {managers.filter((m) => m._id !== editUser._id).map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Assigned offices (WFO)</label>
+                <MultiSelect
+                  options={locations.map((l) => ({ value: l._id, label: l.name }))}
+                  selected={editForm.officeLocations}
+                  onChange={(vals) => setEditForm((f) => ({ ...f, officeLocations: vals }))}
+                  placeholder="Select offices…"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-100">
+              <button onClick={() => setEditUser(null)} className="text-sm rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button onClick={saveEdit} className={btnCls}>Save changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -40,10 +40,11 @@ router.get('/:id/team', auth, ctrl.getTeam);   // scoping enforced in service
 router.put(
   '/:id',
   auth,
+  body('name').optional().isString().notEmpty(),
   body('email').optional().isEmail(),
   body('role').optional().isIn(User.ROLES),
-  body('team').optional().isMongoId(),
-  body('manager').optional().isMongoId(),
+  body('team').optional({ nullable: true }).isMongoId(), // null clears the team
+  body('manager').optional({ nullable: true }).isMongoId(), // null clears the manager
   body('officeLocations').optional().isArray(),
   body('officeLocations.*').optional().isMongoId(),
   validate,

@@ -29,9 +29,17 @@ async function getUserById(requester, id) {
   return user;
 }
 
+// Non-admin users must be mapped to at least one office (for WFO detection).
+function assertOfficesRequired(role, officeLocations) {
+  if (role !== 'admin' && (!Array.isArray(officeLocations) || officeLocations.length === 0)) {
+    throw new ApiError(400, 'At least one assigned office is required');
+  }
+}
+
 async function createUser(data) {
   const email = data.email.toLowerCase();
   if (await User.findOne({ email })) throw new ApiError(409, 'Email already in use');
+  assertOfficesRequired(data.role || 'employee', data.officeLocations);
 
   const user = new User({
     name: data.name,
@@ -55,6 +63,9 @@ async function updateUser(requester, id, data) {
   if (!isAdmin && !isSelf) throw new ApiError(403, 'Forbidden');
 
   if (isAdmin) {
+    if (data.officeLocations !== undefined) {
+      assertOfficesRequired(data.role || user.role, data.officeLocations);
+    }
     ['name', 'email', 'role', 'team', 'manager', 'isActive', 'officeLocations'].forEach((f) => {
       if (data[f] !== undefined) user[f] = data[f];
     });
