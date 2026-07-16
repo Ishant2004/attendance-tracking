@@ -4,6 +4,8 @@ import { teamsApi } from '../api/teams';
 import { locationsApi } from '../api/locations';
 import { holidaysApi } from '../api/holidays';
 import { Card, Badge, Spinner, Select, PasswordInput } from '../components/ui';
+import LocationPickerModal from '../components/LocationPickerModal';
+import { useAuth } from '../auth/AuthContext';
 
 const inputCls =
   'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
@@ -139,6 +141,8 @@ function HolidaysAdmin() {
 }
 
 function UsersAdmin() {
+  const { user: me } = useAuth();
+  const myId = me._id || me.id;
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -222,7 +226,7 @@ function UsersAdmin() {
             {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
           </Select>
           <div className="md:col-span-3">
-            <label className="block text-xs text-slate-500 mb-1">Assigned offices (WFO) — tap to toggle</label>
+            <label className="block text-xs text-slate-500 mb-1">Assigned offices Tap to toggle</label>
             <div className="flex flex-wrap gap-2">
               {locations.map((l) => {
                 const on = form.officeLocations.includes(l._id);
@@ -281,10 +285,14 @@ function UsersAdmin() {
                   </td>
                   <td className="py-2 pr-4">{u.isActive ? 'Yes' : 'No'}</td>
                   <td className="py-2 pr-4 text-right">
-                    {u.isActive && (
-                      <button onClick={() => deactivate(u._id)} className="text-red-600 text-xs hover:underline">
-                        Deactivate
-                      </button>
+                    {u._id === myId ? (
+                      <span className="text-xs text-slate-400">You</span>
+                    ) : (
+                      u.isActive && (
+                        <button onClick={() => deactivate(u._id)} className="text-red-600 text-xs hover:underline">
+                          Deactivate
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>
@@ -383,6 +391,7 @@ function LocationsAdmin() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', latitude: '', longitude: '', radiusMeters: '' });
+  const [showMap, setShowMap] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -438,9 +447,29 @@ function LocationsAdmin() {
           <input required placeholder="Latitude" value={form.latitude} onChange={(e) => setForm((f) => ({ ...f, latitude: e.target.value }))} className={inputCls} />
           <input required placeholder="Longitude" value={form.longitude} onChange={(e) => setForm((f) => ({ ...f, longitude: e.target.value }))} className={inputCls} />
           <input required placeholder="Radius (m)" value={form.radiusMeters} onChange={(e) => setForm((f) => ({ ...f, radiusMeters: e.target.value }))} className={inputCls} />
-          <div className="md:col-span-4"><button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create location'}</button></div>
+          <div className="md:col-span-4 flex items-center gap-3">
+            <button disabled={saving} className={btnCls}>{saving ? 'Creating…' : 'Create location'}</button>
+            <button
+              type="button"
+              onClick={() => setShowMap(true)}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              📍 Choose location
+            </button>
+          </div>
         </form>
       </Card>
+
+      {showMap && (
+        <LocationPickerModal
+          initial={{ latitude: form.latitude, longitude: form.longitude }}
+          onPick={({ latitude, longitude }) => {
+            setForm((f) => ({ ...f, latitude: String(latitude), longitude: String(longitude) }));
+            setShowMap(false);
+          }}
+          onClose={() => setShowMap(false)}
+        />
+      )}
 
       <Card title={`Office locations (${locations.length})`}>
         <div className="overflow-x-auto">

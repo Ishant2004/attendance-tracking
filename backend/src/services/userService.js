@@ -68,7 +68,10 @@ async function updateUser(requester, id, data) {
   return user;
 }
 
-async function deactivateUser(id) {
+async function deactivateUser(requester, id) {
+  if (String(id) === String(requester.id)) {
+    throw new ApiError(400, 'You cannot deactivate your own account');
+  }
   const user = await User.findById(id);
   if (!user) throw new ApiError(404, 'User not found');
   user.isActive = false;

@@ -104,25 +104,30 @@ export default function MyAttendance() {
           </div>
         </div>
 
-        <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />
-          Enter location manually
-        </label>
-        {manual && (
-          <div className="mt-2 flex gap-2">
-            <input
-              placeholder="latitude (e.g. 12.9716)"
-              value={coords.latitude}
-              onChange={(e) => setCoords((c) => ({ ...c, latitude: e.target.value }))}
-              className="rounded border border-slate-300 px-2 py-1 text-sm w-48"
-            />
-            <input
-              placeholder="longitude (e.g. 77.5946)"
-              value={coords.longitude}
-              onChange={(e) => setCoords((c) => ({ ...c, longitude: e.target.value }))}
-              className="rounded border border-slate-300 px-2 py-1 text-sm w-48"
-            />
-          </div>
+        {/* Manual coordinate entry is a spoofing vector — enable only via VITE_ALLOW_MANUAL_LOCATION=true. */}
+        {import.meta.env.VITE_ALLOW_MANUAL_LOCATION === 'true' && (
+          <>
+            <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />
+              Enter location manually <span className="text-xs text-amber-600">(dev only)</span>
+            </label>
+            {manual && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  placeholder="latitude (e.g. 12.9716)"
+                  value={coords.latitude}
+                  onChange={(e) => setCoords((c) => ({ ...c, latitude: e.target.value }))}
+                  className="rounded border border-slate-300 px-2 py-1 text-sm w-48"
+                />
+                <input
+                  placeholder="longitude (e.g. 77.5946)"
+                  value={coords.longitude}
+                  onChange={(e) => setCoords((c) => ({ ...c, longitude: e.target.value }))}
+                  className="rounded border border-slate-300 px-2 py-1 text-sm w-48"
+                />
+              </div>
+            )}
+          </>
         )}
       </Card>
 
