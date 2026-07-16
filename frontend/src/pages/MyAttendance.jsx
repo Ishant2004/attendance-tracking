@@ -86,18 +86,18 @@ export default function MyAttendance() {
             <div className="text-sm text-slate-500">Last event</div>
             <span className="text-sm">{fmt(status?.lastEvent?.timestamp)}</span>
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="w-full sm:w-auto sm:ml-auto flex gap-2">
             <button
               disabled={busy}
               onClick={() => punch('in')}
-              className="rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-60"
+              className="flex-1 sm:flex-none rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-60"
             >
               {busy ? '…' : 'Check in'}
             </button>
             <button
               disabled={busy}
               onClick={() => punch('out')}
-              className="rounded-lg bg-slate-700 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+              className="flex-1 sm:flex-none rounded-lg bg-slate-700 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
             >
               {busy ? '…' : 'Check out'}
             </button>
