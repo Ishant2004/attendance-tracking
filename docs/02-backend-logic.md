@@ -62,7 +62,7 @@ Two scoping helpers power this:
 
 ### Daily rollup — `attendanceRecordService.rollupEventsToRecord(userId, dateStr)`
 Aggregates a user's events for one IST day into their `AttendanceRecord`. Precedence:
-1. If an existing record is manual **Leave/Holiday** → keep it (don't clobber).
+1. If an existing record is approved **Leave / Half Day / Holiday**, or has **`manualOverride`** set (a manager correction) → keep it (don't clobber) — this is why check-in/out have **no effect** on an approved leave day, and why an approved record correction sticks.
 2. If there **are events**: `status = WFO` if *any* event that day is WFO, else `WFH`.
    - `checkInTime` = first `check_in` (or first event); `checkOutTime` = last `check_out` (or last event).
    - `totalHours` = hours between them; `officeLocation` = first WFO event's office.
@@ -75,7 +75,7 @@ Aggregates a user's events for one IST day into their `AttendanceRecord`. Preced
 `Holiday` (active holiday for that date) → else `Weekend` (Sat/Sun) → else `Working`. Holidays match by `YYYY-MM-DD` string (timezone-proof).
 
 ### Outlier detection — `flagService.runDetection({ windowDays = 7 })`
-For each active user, over the trailing window, considers **working-day records only** (excludes Weekend/Holiday/Leave), then:
+For each active user, over the trailing window, considers **working-day records only** (excludes Weekend/Holiday/Leave/Half Day), then:
 
 | Flag | Condition | Severity |
 |---|---|---|
@@ -92,6 +92,17 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 - `leadership(range)` — org totals + per-team comparison.
 - `wfoRatio` / `trends` — org/team/user scoped; trends uses a Mongo `$group` by `YYYY-MM-DD`.
 - Default range = trailing **30 days**; manager access checked via `isManagerOf`.
+
+### Leave & half-day workflow — `leaveRequestService.js`
+- **createRequest** — a user files a request for themselves; `manager` is snapshotted from `user.manager` (must exist). `half_day` collapses `toDate` to `fromDate`. Rejects (409) any request that **overlaps** an existing `pending`/`approved` one for that user (lexical `YYYY-MM-DD` comparison: `from ≤ otherTo && to ≥ otherFrom`).
+- **listMine / listInbox** — own requests vs. the approval queue (requests where `manager == me`, i.e. your direct reports; naturally follows the reporting hierarchy). Cancelled requests are excluded from the inbox.
+- **review(approve|reject)** — only the assigned manager, or leadership/admin, may act; a request can only be reviewed while `pending`. On **approve**, `applyToRecords` upserts each **working day** in the range to `Leave` (or `Half Day`), skipping weekends/holidays. Because the rollup preserves those statuses, later pings/check-ins don't override an approved day.
+- **cancelRequest** — the requester withdraws their own still-`pending` request (→ `cancelled`); frees the dates for a new request.
+
+### Record correction workflow — `recordChangeRequestService.js`
+- Same request/approve/reject/cancel shape as leave, but for **one day's status**. `createRequest` snapshots the record's `currentStatus`, blocks a second pending request for the same day (409), and rejects asking for the status it already has.
+- On **approve**, `applyToRecord` upserts the day's `AttendanceRecord` to `requestedStatus` and sets `manualOverride:true` (clearing the time fields for non-working statuses). The rollup honours `manualOverride`, so the correction survives future pings/reads. The direct manager override (`PUT /attendance-records/:id`) also sets `manualOverride` when it changes `status`.
+- **`GET /users/:id`** populates `manager` (name/email) and `team` (name) — the `/me` page uses this to show the user's reporting manager.
 
 ## Background jobs — `jobs/attendanceJobs.js` (node-cron, IST)
 - **Nightly rollup** — `'30 0 * * *'` (00:30 IST): materialize *yesterday* for every active user (creates Absent/Weekend/Holiday for no-shows).
@@ -116,7 +127,7 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | GET | `/` | manager/leadership/admin | list **active users** (role-scoped; manager → reports+self) — deactivated users are hidden |
-| GET | `/:id` | self/manager/leadership/admin | one user |
+| GET | `/:id` | self/manager/leadership/admin | one user (populates `manager` name/email + `team` name) |
 | POST | `/` | admin | create — **non-admin requires team + manager + ≥1 office**; manager's role must fit the hierarchy (employee→manager, manager→leadership, leadership→admin). Admins are exempt |
 | PUT | `/:id` | admin (any fields) / self (name,password) | update — same invariants enforced on the result (non-admin must keep a valid team, hierarchy-correct manager, and ≥1 office) |
 | DELETE | `/:id` | admin | soft-deactivate (**cannot deactivate self** → 400) |
@@ -158,6 +169,26 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 | GET | `/:userId` | self/manager | history |
 | PUT | `/:id` | manager(report)/admin | manual override |
 | POST | `/mark-leave` | self/manager/leadership/admin | set Leave/Holiday for a date |
+
+### Leave requests — `/leave-requests`
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| POST | `/` | A | request time off for **self** — `{type:'leave'|'half_day', fromDate, toDate?, reason?}` (addressed to your `manager`; requires you to have one) |
+| GET | `/mine` | A | your own requests |
+| GET | `/inbox` | manager/leadership/admin | requests from your **direct reports** (approval queue, pending first) |
+| PUT | `/:id/approve` | manager/leadership/admin | approve (assigned manager, or leadership/admin) → writes `Leave`/`Half Day` onto working days |
+| PUT | `/:id/reject` | manager/leadership/admin | reject (no record change) |
+| PUT | `/:id/cancel` | A (requester) | withdraw your own **pending** request (→ `cancelled`) |
+
+### Record-change requests — `/record-change-requests`
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| POST | `/` | A | request a correction to **one of your own days** — `{date, requestedStatus, reason?}` (one pending per day; can't request the current status) |
+| GET | `/mine` | A | your own change requests |
+| GET | `/inbox` | manager/leadership/admin | requests from your direct reports |
+| PUT | `/:id/approve` | manager/leadership/admin | approve → sets that day's record to `requestedStatus` with `manualOverride:true` |
+| PUT | `/:id/reject` | manager/leadership/admin | reject (no record change) |
+| PUT | `/:id/cancel` | A (requester) | withdraw your own pending request |
 
 ### Flags — `/flags`
 | Method | Path | Access | Purpose |

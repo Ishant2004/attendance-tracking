@@ -32,9 +32,9 @@ async function runDetection({ windowDays = 7 } = {}) {
     });
     if (!records.length) continue;
 
-    // Only working days count — weekends, holidays, and leave never trigger flags.
+    // Only working days count — weekends, holidays, leave, and half-days never trigger flags.
     const workingRecords = records.filter(
-      (r) => !['Weekend', 'Holiday', 'Leave'].includes(r.status)
+      (r) => !['Weekend', 'Holiday', 'Leave', 'Half Day'].includes(r.status)
     );
     if (!workingRecords.length) continue;
 

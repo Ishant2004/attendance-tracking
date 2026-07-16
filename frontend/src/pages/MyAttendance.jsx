@@ -2,17 +2,28 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { attendanceApi } from '../api/attendance';
 import { flagsApi } from '../api/flags';
+import { leaveApi } from '../api/leaveRequests';
+import { recordChangeApi } from '../api/recordChangeRequests';
+import { usersApi } from '../api/users';
 import { getCurrentPosition } from '../utils/geo';
-import { Card, Badge, Spinner, SortHeader } from '../components/ui';
+import { Card, Badge, Spinner, SortHeader, Select } from '../components/ui';
 import { flagLabel, flagDetail } from '../utils/flagFormat';
 import { useSort } from '../hooks/useSort';
 
 const fmt = (dt) => (dt ? new Date(dt).toLocaleString() : '—');
 const fmtDate = (dt) => (dt ? new Date(dt).toLocaleDateString() : '—');
+const fmtDay = (s) => (s ? new Date(`${s}T00:00:00`).toLocaleDateString() : '—');
+// The record's `date` is IST midnight; format the IST calendar day (en-CA => YYYY-MM-DD).
+const isoDay = (dt) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(dt));
+const typeLabel = (t) => (t === 'half_day' ? 'Half day' : 'Leave');
+const rangeLabel = (r) => (r.fromDate === r.toDate ? fmtDay(r.fromDate) : `${fmtDay(r.fromDate)} → ${fmtDay(r.toDate)}`);
+const EMPTY_FORM = { type: 'leave', fromDate: '', toDate: '', reason: '' };
+const STATUS_OPTIONS = ['WFO', 'WFH', 'Absent', 'Leave', 'Half Day', 'Holiday', 'Weekend'];
 
 export default function MyAttendance() {
   const { user } = useAuth();
   const uid = user._id || user.id; // /auth/me serializes _id
+  const canApprove = user.role !== 'employee';
 
   const [status, setStatus] = useState(null);
   const [records, setRecords] = useState([]);
@@ -23,6 +34,32 @@ export default function MyAttendance() {
   const [manual, setManual] = useState(false);
   const [coords, setCoords] = useState({ latitude: '', longitude: '' });
   const { sort, toggle, sortRows } = useSort('date', 'desc');
+
+  const [me, setMe] = useState(null);
+  const [myRequests, setMyRequests] = useState([]);
+  const [inbox, setInbox] = useState([]);
+  const [myChanges, setMyChanges] = useState([]);
+  const [changeInbox, setChangeInbox] = useState([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [reqError, setReqError] = useState('');
+  const [reqBusy, setReqBusy] = useState(false);
+  const [changeFor, setChangeFor] = useState(null); // attendance row being corrected
+  const [changeForm, setChangeForm] = useState({ status: '', reason: '' });
+
+  const loadRequests = useCallback(async () => {
+    const [meRes, lMine, lInbox, cMine, cInbox] = await Promise.all([
+      usersApi.get(uid),
+      leaveApi.mine(),
+      canApprove ? leaveApi.inbox() : Promise.resolve([]),
+      recordChangeApi.mine(),
+      canApprove ? recordChangeApi.inbox() : Promise.resolve([]),
+    ]);
+    setMe(meRes);
+    setMyRequests(lMine);
+    setInbox(lInbox);
+    setMyChanges(cMine);
+    setChangeInbox(cInbox);
+  }, [uid, canApprove]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,16 +72,90 @@ export default function MyAttendance() {
       setStatus(s);
       setRecords(r);
       setFlags(f);
+      await loadRequests();
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, [uid]);
+  }, [uid, loadRequests]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const submitRequest = async (e) => {
+    e.preventDefault();
+    setReqError('');
+    setReqBusy(true);
+    try {
+      const body = { type: form.type, fromDate: form.fromDate, reason: form.reason.trim() };
+      if (form.type === 'leave') body.toDate = form.toDate || form.fromDate;
+      await leaveApi.create(body);
+      setForm(EMPTY_FORM);
+      await loadRequests();
+    } catch (e) {
+      setReqError(e.response?.data?.message || 'Failed to submit request');
+    } finally {
+      setReqBusy(false);
+    }
+  };
+
+  const review = async (id, action) => {
+    try {
+      await (action === 'approve' ? leaveApi.approve(id) : leaveApi.reject(id));
+      await loadRequests();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Action failed');
+    }
+  };
+
+  const cancelRequest = async (id) => {
+    try {
+      await leaveApi.cancel(id);
+      await loadRequests();
+    } catch (e) {
+      setReqError(e.response?.data?.message || 'Failed to cancel request');
+    }
+  };
+
+  const submitChange = async (e) => {
+    e.preventDefault();
+    setReqError('');
+    setReqBusy(true);
+    try {
+      await recordChangeApi.create({
+        date: isoDay(changeFor.date),
+        requestedStatus: changeForm.status,
+        reason: changeForm.reason.trim(),
+      });
+      setChangeFor(null);
+      setChangeForm({ status: '', reason: '' });
+      await loadRequests();
+    } catch (e) {
+      setReqError(e.response?.data?.message || 'Failed to submit change request');
+    } finally {
+      setReqBusy(false);
+    }
+  };
+
+  const reviewChange = async (id, action) => {
+    try {
+      await (action === 'approve' ? recordChangeApi.approve(id) : recordChangeApi.reject(id));
+      await loadRequests();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Action failed');
+    }
+  };
+
+  const cancelChange = async (id) => {
+    try {
+      await recordChangeApi.cancel(id);
+      await loadRequests();
+    } catch (e) {
+      setReqError(e.response?.data?.message || 'Failed to cancel change request');
+    }
+  };
 
   const punch = async (kind) => {
     setBusy(true);
@@ -88,6 +199,10 @@ export default function MyAttendance() {
           <div>
             <div className="text-sm text-slate-500">Last event</div>
             <span className="text-sm">{fmt(status?.lastEvent?.timestamp)}</span>
+          </div>
+          <div>
+            <div className="text-sm text-slate-500">Reporting manager</div>
+            <span className="font-medium">{me?.manager?.name || '—'}</span>
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex gap-2">
             <button
@@ -134,6 +249,159 @@ export default function MyAttendance() {
         )}
       </Card>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card title="Request time off">
+          <form onSubmit={submitRequest} className="space-y-3">
+            {reqError && <div className="rounded bg-red-50 text-red-700 text-sm px-3 py-2">{reqError}</div>}
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Type</label>
+              <Select
+                value={form.type}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+              >
+                <option value="leave">Leave (a day or a period)</option>
+                <option value="half_day">Half day (single day)</option>
+              </Select>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex-1 min-w-[8rem]">
+                <label className="block text-sm text-slate-600 mb-1">
+                  {form.type === 'half_day' ? 'Date' : 'From'}
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={form.fromDate}
+                  onChange={(e) => setForm((f) => ({ ...f, fromDate: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              {form.type === 'leave' && (
+                <div className="flex-1 min-w-[8rem]">
+                  <label className="block text-sm text-slate-600 mb-1">To</label>
+                  <input
+                    type="date"
+                    required
+                    min={form.fromDate || undefined}
+                    value={form.toDate}
+                    onChange={(e) => setForm((f) => ({ ...f, toDate: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Reason <span className="text-slate-400">(optional)</span></label>
+              <input
+                type="text"
+                value={form.reason}
+                maxLength={500}
+                onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
+                placeholder="e.g. family function"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={reqBusy || !form.fromDate}
+              className="rounded-lg bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {reqBusy ? 'Submitting…' : 'Send to my manager'}
+            </button>
+            <p className="text-xs text-slate-400">
+              Your reporting manager approves the request. Once approved, those days show as{' '}
+              <Badge tone="Leave">Leave</Badge> or <Badge tone="Half Day">Half Day</Badge> on your record.
+            </p>
+          </form>
+        </Card>
+
+        <Card title="My requests">
+          {myRequests.length === 0 ? (
+            <p className="text-sm text-slate-500">No requests yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {myRequests.map((r) => (
+                <li key={r._id} className="flex flex-wrap items-center gap-2 text-sm border-b border-slate-50 pb-2 last:border-0">
+                  <span className="font-medium text-slate-700">{typeLabel(r.type)}</span>
+                  <span className="text-slate-500">{rangeLabel(r)}</span>
+                  {r.reason && <span className="text-slate-400 italic">“{r.reason}”</span>}
+                  <span className="ml-auto flex items-center gap-2">
+                    <Badge tone={r.status}>{r.status}</Badge>
+                    {r.status === 'pending' && (
+                      <button
+                        onClick={() => cancelRequest(r._id)}
+                        className="rounded-lg bg-slate-200 text-slate-700 px-3 py-1 text-xs font-medium hover:bg-slate-300"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {canApprove && (() => {
+        const pendingCount =
+          inbox.filter((r) => r.status === 'pending').length +
+          changeInbox.filter((r) => r.status === 'pending').length;
+        const byPending = (a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1);
+        const actions = (r, fn) =>
+          r.status === 'pending' ? (
+            <span className="ml-auto flex gap-2">
+              <button onClick={() => fn(r._id, 'approve')} className="rounded-lg bg-green-600 text-white px-3 py-1 text-xs font-medium hover:bg-green-700">Approve</button>
+              <button onClick={() => fn(r._id, 'reject')} className="rounded-lg bg-slate-200 text-slate-700 px-3 py-1 text-xs font-medium hover:bg-slate-300">Reject</button>
+            </span>
+          ) : (
+            <Badge tone={r.status}>{r.status}</Badge>
+          );
+        return (
+          <Card title={`Approvals${pendingCount ? ` (${pendingCount} pending)` : ''}`}>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Time off</h3>
+                {inbox.length === 0 ? (
+                  <p className="text-sm text-slate-500">No time-off requests from your reports.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {[...inbox].sort(byPending).map((r) => (
+                      <li key={r._id} className="flex flex-wrap items-center gap-2 text-sm border-b border-slate-50 pb-2 last:border-0">
+                        <span className="font-medium text-slate-700">{r.user?.name || '—'}</span>
+                        <span className="text-slate-500">{typeLabel(r.type)} · {rangeLabel(r)}</span>
+                        {r.reason && <span className="text-slate-400 italic">“{r.reason}”</span>}
+                        {actions(r, review)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Record corrections</h3>
+                {changeInbox.length === 0 ? (
+                  <p className="text-sm text-slate-500">No record-change requests from your reports.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {[...changeInbox].sort(byPending).map((r) => (
+                      <li key={r._id} className="flex flex-wrap items-center gap-2 text-sm border-b border-slate-50 pb-2 last:border-0">
+                        <span className="font-medium text-slate-700">{r.user?.name || '—'}</span>
+                        <span className="text-slate-500">{fmtDay(r.date)}:</span>
+                        <Badge tone={r.currentStatus || 'unknown'}>{r.currentStatus || 'none'}</Badge>
+                        <span className="text-slate-400">→</span>
+                        <Badge tone={r.requestedStatus}>{r.requestedStatus}</Badge>
+                        {r.reason && <span className="text-slate-400 italic">“{r.reason}”</span>}
+                        {actions(r, reviewChange)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
+
       <Card title="Attendance history">
         {records.length === 0 ? (
           <p className="text-sm text-slate-500">No records yet.</p>
@@ -148,6 +416,7 @@ export default function MyAttendance() {
                   <SortHeader label="Check out" sortKey="checkOut" sort={sort} onSort={toggle} />
                   <SortHeader label="Hours" sortKey="hours" sort={sort} onSort={toggle} />
                   <SortHeader label="Late" sortKey="late" sort={sort} onSort={toggle} />
+                  <th className="py-2 pr-4"></th>
                 </tr>
               </thead>
               <tbody>
@@ -166,11 +435,50 @@ export default function MyAttendance() {
                     <td className="py-2 pr-4">{fmt(r.checkOutTime)}</td>
                     <td className="py-2 pr-4">{r.totalHours ?? 0}</td>
                     <td className="py-2 pr-4">{r.isLate ? <Badge tone="high">Late</Badge> : '—'}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => { setReqError(''); setChangeForm({ status: '', reason: '' }); setChangeFor(r); }}
+                        className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                      >
+                        Request change
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
+      </Card>
+
+      <Card title="My record-change requests">
+        {myChanges.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No change requests. Use “Request change” on any row above to ask your manager to correct a day.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {myChanges.map((r) => (
+              <li key={r._id} className="flex flex-wrap items-center gap-2 text-sm border-b border-slate-50 pb-2 last:border-0">
+                <span className="text-slate-500">{fmtDay(r.date)}:</span>
+                <Badge tone={r.currentStatus || 'unknown'}>{r.currentStatus || 'none'}</Badge>
+                <span className="text-slate-400">→</span>
+                <Badge tone={r.requestedStatus}>{r.requestedStatus}</Badge>
+                {r.reason && <span className="text-slate-400 italic">“{r.reason}”</span>}
+                <span className="ml-auto flex items-center gap-2">
+                  <Badge tone={r.status}>{r.status}</Badge>
+                  {r.status === 'pending' && (
+                    <button
+                      onClick={() => cancelChange(r._id)}
+                      className="rounded-lg bg-slate-200 text-slate-700 px-3 py-1 text-xs font-medium hover:bg-slate-300"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 
@@ -190,6 +498,54 @@ export default function MyAttendance() {
           </ul>
         )}
       </Card>
+
+      {changeFor && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setChangeFor(null)}>
+          <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-semibold text-slate-800">Request record change</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {fmtDate(changeFor.date)} — currently <Badge tone={changeFor.status}>{changeFor.status}</Badge>
+            </p>
+            <form onSubmit={submitChange} className="space-y-3 mt-3">
+              {reqError && <div className="rounded bg-red-50 text-red-700 text-sm px-3 py-2">{reqError}</div>}
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Change to</label>
+                <Select
+                  required
+                  value={changeForm.status}
+                  onChange={(e) => setChangeForm((f) => ({ ...f, status: e.target.value }))}
+                >
+                  <option value="" disabled>Select status…</option>
+                  {STATUS_OPTIONS.filter((s) => s !== changeFor.status).map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Reason <span className="text-slate-400">(optional)</span></label>
+                <input
+                  type="text"
+                  maxLength={500}
+                  value={changeForm.reason}
+                  onChange={(e) => setChangeForm((f) => ({ ...f, reason: e.target.value }))}
+                  placeholder="why this should change"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setChangeFor(null)} className="text-sm rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button
+                  type="submit"
+                  disabled={reqBusy || !changeForm.status}
+                  className="text-sm rounded-lg bg-indigo-600 text-white px-4 py-1.5 font-medium hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {reqBusy ? 'Sending…' : 'Send to my manager'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

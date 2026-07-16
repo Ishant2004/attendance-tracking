@@ -13,6 +13,8 @@ frontend/src/
 │   ├── auth.js           # login, me, logout, changePassword
 │   ├── users.js teams.js locations.js holidays.js
 │   ├── attendance.js     # currentStatus, checkIn, checkOut, ping, records
+│   ├── leaveRequests.js  # create, mine, inbox, approve, reject, cancel
+│   ├── recordChangeRequests.js  # create, mine, inbox, approve, reject, cancel
 │   ├── flags.js dashboard.js
 ├── auth/
 │   ├── AuthContext.jsx   # user state, login/logout, session restore
@@ -84,7 +86,7 @@ refresh fails ──► clear tokens ──► /login
 - `utils/geo.js` `getCurrentPosition()` has a watchdog + `{enableHighAccuracy:false, timeout:8s, maximumAge:5min}` so it never hangs and can use a cached fix.
 
 ## Pages by role
-- **MyAttendance** (`/me`, everyone): current status card + **Check in/out** buttons (real GPS; manual box only if `VITE_ALLOW_MANUAL_LOCATION=true`), attendance history table, "My flags".
+- **MyAttendance** (`/me`, everyone): current status card (now includes the user's **reporting manager** name, fetched via `usersApi.get`) + **Check in/out** buttons (real GPS; manual box only if `VITE_ALLOW_MANUAL_LOCATION=true`); **Request time off** form (Leave for a day/period, or Half day for one day, + optional reason) and **My requests** list (pending ones have a **Cancel** button; overlapping-date requests are rejected with a message); an **Approvals** card (managers/leadership/admin only) with two sections — **Time off** and **Record corrections** — listing your reports' requests with **Approve/Reject**; attendance history table where each row has a **Request change** action (a modal to ask your manager to correct that day's status) and a **My record-change requests** list (with Cancel for pending); "My flags".
 - **TeamDashboard** (`/team`, managers): loads **teams you manage** (`/teams/managed`); **team switcher** if >1; summary tiles + per-member table + team flags with **Resolve**. Friendly notice if you manage none.
 - **LeadershipDashboard** (`/leadership`): org stat tiles + **Recharts** trend line (WFO/WFH/Absent/Late) + team-comparison bars + teams table.
 - **AdminPanel** (`/admin`): four tabs —

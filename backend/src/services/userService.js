@@ -23,7 +23,7 @@ async function listUsers(requester, filters = {}) {
 }
 
 async function getUserById(requester, id) {
-  const user = await User.findById(id);
+  const user = await User.findById(id).populate('manager', 'name email').populate('team', 'name');
   if (!user) throw new ApiError(404, 'User not found');
   assertCanView(requester, user);
   return user;

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const STATUSES = ['WFO', 'WFH', 'Absent', 'Leave', 'Holiday', 'Weekend'];
+const STATUSES = ['WFO', 'WFH', 'Absent', 'Leave', 'Half Day', 'Holiday', 'Weekend'];
 
 const attendanceRecordSchema = new mongoose.Schema(
   {
@@ -16,6 +16,9 @@ const attendanceRecordSchema = new mongoose.Schema(
       default: null,
     },
     isLate: { type: Boolean, default: false },
+    // Set when a manager corrects the record (directly or via an approved change request).
+    // The rollup then treats it as authoritative and won't re-derive it from events.
+    manualOverride: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

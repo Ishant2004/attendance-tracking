@@ -15,6 +15,8 @@ User ─┬─ team ────────► Team ──── managers[] ─
 AttendanceEvent ── user ─► User,  officeLocation ─► OfficeLocation   (raw GPS pings)
 AttendanceRecord ─ user ─► User,  officeLocation ─► OfficeLocation   (1 per user per day)
 AttendanceFlag ─── user ─► User                                      (outlier alerts)
+LeaveRequest ───── user ─► User,  manager ─► User                    (time-off + approval)
+RecordChangeRequest  user ─► User,  manager ─► User                  (record correction + approval)
 Holiday                                                              (company calendar)
 ```
 
@@ -120,22 +122,77 @@ Everyone — employees, managers, leadership, admins — in one collection, spli
 | `_id`            | ObjectId                    | auto                                                       |                                                |
 | `user`           | ObjectId → `User`           | required                                                   |                                                |
 | `date`           | Date                        | required                                                   | **IST midnight** instant for that calendar day |
-| `status`         | String (enum)               | `WFO` | `WFH` | `Absent` | `Leave` | `Holiday` | `Weekend` | the day's classification                       |
+| `status`         | String (enum)               | `WFO` | `WFH` | `Absent` | `Leave` | `Half Day` | `Holiday` | `Weekend` | the day's classification                       |
 | `checkInTime`    | Date                        | nullable                                                   | first check-in (or first event) of the day     |
 | `checkOutTime`   | Date                        | nullable                                                   | last check-out (or last event)                 |
 | `totalHours`     | Number                      | default 0                                                  | `(checkOut − checkIn)` in hours, 2 dp          |
 | `officeLocation` | ObjectId → `OfficeLocation` | nullable                                                   | office of the first WFO event                  |
 | `isLate`         | Boolean                     | default false                                              | check-in hour ≥ **10:00** (IST)                |
+| `manualOverride` | Boolean                     | default false                                              | set when a manager corrects the day (direct edit or approved change request); the rollup then treats the record as authoritative and won't re-derive it from events |
 
 
 - **Unique index:** `{ user: 1, date: 1 }` — one record per user per day (makes rollup idempotent/upsert-safe).
-- **Status precedence** when derived (see `02-backend-logic`): manual `Leave`/`Holiday` preserved → else events present ⇒ `WFO`/`WFH` → else `Holiday` → `Weekend` → `Absent`.
+- **Status precedence** when derived (see `02-backend-logic`): approved `Leave`/`Half Day`/`Holiday` preserved → else events present ⇒ `WFO`/`WFH` → else `Holiday` → `Weekend` → `Absent`.
 
 ---
 
 
 
-## 6. `attendanceflags` (outlier alerts)
+## 6. `leaverequests` (time-off requests + approval workflow)
+
+A user requests **leave** (a day or a period) or a **half day** (single day); their reporting
+manager approves or rejects. On approval the working days in range are written onto
+`attendancerecords` (`Leave` / `Half Day`), where they are authoritative — pings & check-ins
+can't override them.
+
+| Field         | Type              | Allowed values / rules                    | Notes                                                              |
+| ------------- | ----------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| `_id`         | ObjectId          | auto                                      |                                                                    |
+| `user`        | ObjectId → `User` | required                                  | who is requesting                                                  |
+| `manager`     | ObjectId → `User` | required                                  | the reporting manager it's addressed to (snapshot of `user.manager`) |
+| `type`        | String (enum)     | `leave` | `half_day`                      | `half_day` ⇒ a single day                                          |
+| `fromDate`    | String            | `YYYY-MM-DD`, required                    | inclusive start (timezone-proof string)                            |
+| `toDate`      | String            | `YYYY-MM-DD`, required                    | inclusive end; for `half_day` equals `fromDate`                    |
+| `reason`      | String            | optional, ≤ 500 chars                     | free text                                                          |
+| `status`      | String (enum)     | `pending` | `approved` | `rejected` | `cancelled` (default `pending`) | approval state (`cancelled` = withdrawn by requester) |
+| `reviewedBy`  | ObjectId → `User` | nullable                                  | who approved/rejected                                              |
+| `reviewedAt`  | Date              | nullable                                  | when it was reviewed                                               |
+
+- **Indexes:** `{ user:1, createdAt:-1 }` (my requests) and `{ manager:1, status:1, createdAt:-1 }` (approval queue).
+- On **approve**, only **working days** get written (weekends/holidays in the range keep their own status).
+- **No overlap:** a new request is rejected (409) if it overlaps an existing `pending`/`approved` request for the same user. A requester can **cancel** their own `pending` request (→ `cancelled`), which frees those dates and hides it from the manager's inbox.
+
+---
+
+
+
+## 7. `recordchangerequests` (attendance-record correction workflow)
+
+A user asks their manager to fix **one day's** attendance status (e.g. a day wrongly marked
+`Absent` that should be `WFH`). On approval the record is set to the requested status and
+`manualOverride` is pinned so the rollup won't undo it.
+
+| Field             | Type              | Allowed values / rules                    | Notes                                              |
+| ----------------- | ----------------- | ----------------------------------------- | -------------------------------------------------- |
+| `_id`             | ObjectId          | auto                                      |                                                    |
+| `user`            | ObjectId → `User` | required                                  | who wants the correction                           |
+| `manager`         | ObjectId → `User` | required                                  | approver (snapshot of `user.manager`)              |
+| `date`            | String            | `YYYY-MM-DD`, required                    | the day to correct                                 |
+| `currentStatus`   | String            | nullable                                  | snapshot of the record's status at request time    |
+| `requestedStatus` | String (enum)     | any `AttendanceRecord` status             | desired status                                     |
+| `reason`          | String            | optional, ≤ 500 chars                     |                                                    |
+| `status`          | String (enum)     | `pending` | `approved` | `rejected` | `cancelled` (default `pending`) | approval state       |
+| `reviewedBy`      | ObjectId → `User` | nullable                                  |                                                    |
+| `reviewedAt`      | Date              | nullable                                  |                                                    |
+
+- **Indexes:** `{ user:1, createdAt:-1 }` and `{ manager:1, status:1, createdAt:-1 }`.
+- Only **one pending** request per user per day (409 otherwise); can't request the status it already has. Requester may **cancel** a pending one.
+
+---
+
+
+
+## 8. `attendanceflags` (outlier alerts)
 
 
 | Field           | Type              | Allowed values / rules                                                     | Notes                                     |
@@ -155,7 +212,7 @@ Everyone — employees, managers, leadership, admins — in one collection, spli
 
 
 
-## 7. `holidays` (global company calendar)
+## 9. `holidays` (global company calendar)
 
 
 | Field      | Type     | Allowed values / rules                              | Notes                                                      |

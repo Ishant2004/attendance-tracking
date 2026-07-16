@@ -23,7 +23,10 @@ async function rollupEventsToRecord(userId, dateStr) {
   const { start, end } = dayWindow(dateStr);
   let record = await AttendanceRecord.findOne({ user: userId, date: start });
 
-  if (record && ['Leave', 'Holiday'].includes(record.status)) return record;
+  // Approved leave / half-day / holidays and manager corrections are authoritative —
+  // events never override them.
+  if (record && (record.manualOverride || ['Leave', 'Half Day', 'Holiday'].includes(record.status)))
+    return record;
 
   const events = await AttendanceEvent.find({
     user: userId,
@@ -123,6 +126,8 @@ async function updateRecord(requester, id, data) {
       if (data[f] !== undefined) record[f] = data[f];
     }
   );
+  // A manual status change should stick against the next rollup.
+  if (data.status !== undefined) record.manualOverride = true;
   await record.save();
   return record;
 }
