@@ -29,6 +29,22 @@ async function createHoliday({ date, name }) {
   return Holiday.create({ date, name });
 }
 
+async function updateHoliday(id, { date, name }) {
+  const holiday = await Holiday.findById(id);
+  if (!holiday) throw new ApiError(404, 'Holiday not found');
+
+  if (date !== undefined && date !== holiday.date) {
+    // `date` is unique across all holidays (active or not).
+    const clash = await Holiday.findOne({ date, _id: { $ne: id } });
+    if (clash) throw new ApiError(409, 'Another holiday already exists for that date');
+    holiday.date = date;
+  }
+  if (name !== undefined) holiday.name = name;
+
+  await holiday.save(); // `updatedAt` refreshes automatically (timestamps)
+  return holiday;
+}
+
 async function deleteHoliday(id) {
   const holiday = await Holiday.findById(id);
   if (!holiday) throw new ApiError(404, 'Holiday not found');
@@ -37,4 +53,4 @@ async function deleteHoliday(id) {
   return holiday;
 }
 
-module.exports = { getDayType, listHolidays, createHoliday, deleteHoliday };
+module.exports = { getDayType, listHolidays, createHoliday, updateHoliday, deleteHoliday };

@@ -12,9 +12,14 @@ const create = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: { holiday } });
 });
 
+const update = asyncHandler(async (req, res) => {
+  const holiday = await service.updateHoliday(req.params.id, req.body);
+  res.json({ success: true, data: { holiday }, message: 'Holiday updated' });
+});
+
 const remove = asyncHandler(async (req, res) => {
   const holiday = await service.deleteHoliday(req.params.id);
   res.json({ success: true, data: { holiday }, message: 'Holiday deleted' });
 });
 
-module.exports = { list, create, remove };
+module.exports = { list, create, update, remove };

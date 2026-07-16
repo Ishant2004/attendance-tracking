@@ -48,6 +48,9 @@ function HolidaysAdmin() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ date: '', name: '' });
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState({ date: '', name: '' });
+  const [sort, setSort] = useState({ key: 'date', dir: 'asc' });
 
   const load = async () => {
     setLoading(true);
@@ -87,6 +90,31 @@ function HolidaysAdmin() {
     }
   };
 
+  const startEdit = (h) => {
+    setError('');
+    setEditId(h._id);
+    setEditForm({ date: h.date, name: h.name });
+  };
+  const saveEdit = async (id) => {
+    setError('');
+    try {
+      await holidaysApi.update(id, { date: editForm.date, name: editForm.name });
+      setEditId(null);
+      await load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+  const arrow = (key) => (sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '');
+  const sorted = [...holidays].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    const cmp = sort.key === 'name' ? a.name.localeCompare(b.name) : a.date.localeCompare(b.date);
+    return dir * cmp;
+  });
+
   if (loading) return <Spinner />;
 
   return (
@@ -111,25 +139,54 @@ function HolidaysAdmin() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="py-2 pr-4">Date</th>
-                <th className="py-2 pr-4">Name</th>
+                <th className="py-2 pr-4">
+                  <button type="button" onClick={() => toggleSort('date')} className="inline-flex items-center hover:text-slate-700">
+                    Date{arrow('date')}
+                  </button>
+                </th>
+                <th className="py-2 pr-4">
+                  <button type="button" onClick={() => toggleSort('name')} className="inline-flex items-center hover:text-slate-700">
+                    Name{arrow('name')}
+                  </button>
+                </th>
                 <th className="py-2 pr-4">Active</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {holidays.map((h) => (
+              {sorted.map((h) => (
                 <tr key={h._id} className="border-b border-slate-50">
-                  <td className="py-2 pr-4">{h.date}</td>
-                  <td className="py-2 pr-4">{h.name}</td>
-                  <td className="py-2 pr-4">{h.isActive ? 'Yes' : 'No'}</td>
-                  <td className="py-2 pr-4 text-right">
-                    {h.isActive && (
-                      <button onClick={() => remove(h._id)} className="text-red-600 text-xs hover:underline">
-                        Delete
-                      </button>
-                    )}
-                  </td>
+                  {editId === h._id ? (
+                    <>
+                      <td className="py-2 pr-4">
+                        <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))} className={inputCls} />
+                      </td>
+                      <td className="py-2 pr-4">
+                        <input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
+                      </td>
+                      <td className="py-2 pr-4">{h.isActive ? 'Yes' : 'No'}</td>
+                      <td className="py-2 pr-4 text-right whitespace-nowrap">
+                        <span className="flex gap-3 justify-end">
+                          <button onClick={() => saveEdit(h._id)} className="text-indigo-600 text-xs hover:underline">Save</button>
+                          <button onClick={() => setEditId(null)} className="text-slate-500 text-xs hover:underline">Cancel</button>
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="py-2 pr-4">{h.date}</td>
+                      <td className="py-2 pr-4">{h.name}</td>
+                      <td className="py-2 pr-4">{h.isActive ? 'Yes' : 'No'}</td>
+                      <td className="py-2 pr-4 text-right whitespace-nowrap">
+                        <span className="flex gap-3 justify-end">
+                          <button onClick={() => startEdit(h)} className="text-indigo-600 text-xs hover:underline">Edit</button>
+                          {h.isActive && (
+                            <button onClick={() => remove(h._id)} className="text-red-600 text-xs hover:underline">Delete</button>
+                          )}
+                        </span>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

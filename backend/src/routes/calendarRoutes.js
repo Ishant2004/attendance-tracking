@@ -19,6 +19,16 @@ router.post(
   ctrl.create
 );
 
+router.put(
+  '/:id',
+  auth,
+  authorize('admin'),
+  body('date').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('date must be YYYY-MM-DD'),
+  body('name').optional().isString().notEmpty(),
+  validate,
+  ctrl.update
+);
+
 router.delete('/:id', auth, authorize('admin'), ctrl.remove);
 
 module.exports = router;

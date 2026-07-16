@@ -183,6 +183,7 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 |---|---|---|---|
 | GET | `/` | any A | active holidays (admin `?includeInactive=true`) |
 | POST | `/` | admin | create (date `YYYY-MM-DD`, name) — reactivates a soft-deleted date |
+| PUT | `/:id` | admin | update `date` and/or `name` (409 if new date clashes; refreshes `updatedAt`) |
 | DELETE | `/:id` | admin | soft-delete |
 
 ## API docs
