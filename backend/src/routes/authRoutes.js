@@ -17,13 +17,4 @@ router.post('/refresh', body('refreshToken').isString().notEmpty(), validate, ct
 router.post('/logout', auth, ctrl.logout);
 router.get('/me', auth, ctrl.me);
 
-router.post('/verify-email/send', auth, ctrl.sendEmailOtp);
-router.post(
-  '/verify-email',
-  auth,
-  body('code').isLength({ min: 6, max: 6 }).isNumeric(),
-  validate,
-  ctrl.verifyEmail
-);
-
 module.exports = router;

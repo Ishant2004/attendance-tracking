@@ -1,6 +1,5 @@
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
-const otpService = require('./otpService');
 
 // Can `requester` view `target`'s record?
 function assertCanView(requester, target) {
@@ -44,13 +43,6 @@ async function createUser(data) {
     officeLocations: data.officeLocations || [],
   });
   await user.save();
-
-  // Email the new user a verification code (non-blocking — don't fail creation if mail errors).
-  try {
-    await otpService.generateAndSend(user, 'email_verify');
-  } catch (e) {
-    console.error('[createUser] failed to send verification email:', e.message);
-  }
   return user;
 }
 
