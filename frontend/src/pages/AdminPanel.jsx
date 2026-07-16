@@ -13,6 +13,9 @@ const inputCls =
 const btnCls =
   'rounded-lg bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60';
 
+// Reporting hierarchy: which role a user's manager must have.
+const MANAGER_ROLE = { employee: 'manager', manager: 'leadership', leadership: 'admin' };
+
 const TABS = ['Users', 'Teams', 'Office Locations', 'Holidays'];
 
 export default function AdminPanel() {
@@ -239,8 +242,11 @@ function UsersAdmin() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.role !== 'admin' && form.officeLocations.length === 0)
-      return setError('At least one assigned office is required');
+    if (form.role !== 'admin') {
+      if (!form.team) return setError('Team is required');
+      if (!form.manager) return setError('Manager is required');
+      if (form.officeLocations.length === 0) return setError('At least one assigned office is required');
+    }
     setSaving(true);
     try {
       const body = { ...form };
@@ -277,8 +283,11 @@ function UsersAdmin() {
   };
   const saveEdit = async () => {
     setError('');
-    if (editUser.role !== 'admin' && editForm.officeLocations.length === 0)
-      return setError('At least one assigned office is required');
+    if (editUser.role !== 'admin') {
+      if (!editForm.team) return setError('Team is required');
+      if (!editForm.manager) return setError('Manager is required');
+      if (editForm.officeLocations.length === 0) return setError('At least one assigned office is required');
+    }
     try {
       await usersApi.update(editUser._id, {
         name: editForm.name,
@@ -293,7 +302,7 @@ function UsersAdmin() {
     }
   };
 
-  const managers = users.filter((u) => ['manager', 'leadership', 'admin'].includes(u.role));
+  const createManagers = users.filter((u) => u.role === MANAGER_ROLE[form.role]);
   const locName = Object.fromEntries(locations.map((l) => [l._id, l.name]));
   if (loading) return <Spinner />;
 
@@ -305,20 +314,24 @@ function UsersAdmin() {
           <input required placeholder="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
           <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
           <PasswordInput required placeholder="Password (min 6)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-          <Select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
+          <Select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value, manager: '' }))}>
             <option value="employee">employee</option>
             <option value="manager">manager</option>
             <option value="leadership">leadership</option>
             <option value="admin">admin</option>
           </Select>
-          <Select value={form.team} onChange={(e) => setForm((f) => ({ ...f, team: e.target.value }))}>
-            <option value="">No team</option>
-            {teams.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
-          </Select>
-          <Select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))}>
-            <option value="">No manager</option>
-            {managers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
-          </Select>
+          {form.role !== 'admin' && (
+            <>
+              <Select value={form.team} onChange={(e) => setForm((f) => ({ ...f, team: e.target.value }))}>
+                <option value="">Select team…</option>
+                {teams.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
+              </Select>
+              <Select value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))}>
+                <option value="">Select manager ({MANAGER_ROLE[form.role]})…</option>
+                {createManagers.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+              </Select>
+            </>
+          )}
           <div className="md:col-span-3">
             <label className="block text-xs text-slate-500 mb-1">Assigned offices (WFO)</label>
             <MultiSelect
@@ -397,15 +410,17 @@ function UsersAdmin() {
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Team</label>
                 <Select value={editForm.team} onChange={(e) => setEditForm((f) => ({ ...f, team: e.target.value }))}>
-                  <option value="">No team</option>
+                  <option value="">Select team…</option>
                   {teams.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
                 </Select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Manager</label>
+                <label className="block text-xs text-slate-500 mb-1">Manager ({MANAGER_ROLE[editUser.role]})</label>
                 <Select value={editForm.manager} onChange={(e) => setEditForm((f) => ({ ...f, manager: e.target.value }))}>
-                  <option value="">No manager</option>
-                  {managers.filter((m) => m._id !== editUser._id).map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                  <option value="">Select manager…</option>
+                  {users
+                    .filter((m) => m.role === MANAGER_ROLE[editUser.role] && m._id !== editUser._id)
+                    .map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </Select>
               </div>
               <div>

@@ -36,10 +36,28 @@ function assertOfficesRequired(role, officeLocations) {
   }
 }
 
+// Reporting hierarchy: which role a user's manager must have.
+const MANAGER_ROLE = { employee: 'manager', manager: 'leadership', leadership: 'admin' };
+
+// Non-admin users must have a team and a manager of the correct role.
+async function assertTeamAndManager(role, teamId, managerId) {
+  if (role === 'admin') return; // admins have no team/manager
+  if (!teamId) throw new ApiError(400, 'Team is required');
+  if (!managerId) throw new ApiError(400, 'Manager is required');
+  const expected = MANAGER_ROLE[role];
+  const mgr = await User.findById(managerId).select('role isActive');
+  if (!mgr) throw new ApiError(400, 'Manager not found');
+  if (mgr.role !== expected) {
+    throw new ApiError(400, `A ${role}'s manager must be a ${expected}`);
+  }
+}
+
 async function createUser(data) {
   const email = data.email.toLowerCase();
   if (await User.findOne({ email })) throw new ApiError(409, 'Email already in use');
-  assertOfficesRequired(data.role || 'employee', data.officeLocations);
+  const role = data.role || 'employee';
+  assertOfficesRequired(role, data.officeLocations);
+  await assertTeamAndManager(role, data.team, data.manager);
 
   const user = new User({
     name: data.name,
@@ -63,12 +81,12 @@ async function updateUser(requester, id, data) {
   if (!isAdmin && !isSelf) throw new ApiError(403, 'Forbidden');
 
   if (isAdmin) {
-    if (data.officeLocations !== undefined) {
-      assertOfficesRequired(data.role || user.role, data.officeLocations);
-    }
     ['name', 'email', 'role', 'team', 'manager', 'isActive', 'officeLocations'].forEach((f) => {
       if (data[f] !== undefined) user[f] = data[f];
     });
+    // Enforce invariants on the resulting user.
+    assertOfficesRequired(user.role, user.officeLocations);
+    await assertTeamAndManager(user.role, user.team, user.manager);
   } else {
     // self-service: only allowed to change their own name
     if (data.name !== undefined) user.name = data.name;

@@ -117,8 +117,8 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 |---|---|---|---|
 | GET | `/` | manager/leadership/admin | list **active users** (role-scoped; manager → reports+self) — deactivated users are hidden |
 | GET | `/:id` | self/manager/leadership/admin | one user |
-| POST | `/` | admin | create (name,email,password,role,team?,manager?,officeLocations) — **≥1 office required for non-admin roles** |
-| PUT | `/:id` | admin (any fields) / self (name,password) | update — team/manager may be cleared (null); **offices can't be emptied for non-admin** |
+| POST | `/` | admin | create — **non-admin requires team + manager + ≥1 office**; manager's role must fit the hierarchy (employee→manager, manager→leadership, leadership→admin). Admins are exempt |
+| PUT | `/:id` | admin (any fields) / self (name,password) | update — same invariants enforced on the result (non-admin must keep a valid team, hierarchy-correct manager, and ≥1 office) |
 | DELETE | `/:id` | admin | soft-deactivate (**cannot deactivate self** → 400) |
 | GET | `/:id/team` | self/manager/leadership/admin | user's team (populated) |
 
