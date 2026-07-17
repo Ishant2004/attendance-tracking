@@ -15,9 +15,13 @@ async function getOrCreateConversation(meId, otherId) {
   const other = await User.findById(otherId);
   if (!other || !other.isActive) throw new ApiError(404, 'User not found');
 
+  // Atomic upsert avoids a duplicate-key race when both users message first at once.
   const key = keyFor(meId, otherId);
-  let conv = await Conversation.findOne({ key });
-  if (!conv) conv = await Conversation.create({ participants: [meId, otherId], key, unread: {} });
+  const conv = await Conversation.findOneAndUpdate(
+    { key },
+    { $setOnInsert: { participants: [meId, otherId], key, unread: {} } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
   await conv.populate('participants', 'name role');
   return conv;
 }

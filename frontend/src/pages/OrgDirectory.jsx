@@ -168,22 +168,25 @@ export default function OrgDirectory() {
     return () => el.removeEventListener('wheel', onWheel);
   }, [applyZoom]);
 
+  // Pointer events cover mouse, touch and pen, so drag-to-pan works on mobile too.
   useEffect(() => {
     const onMove = (e) => {
       if (!drag.current) return;
       setPan({ x: drag.current.px + (e.clientX - drag.current.sx), y: drag.current.py + (e.clientY - drag.current.sy) });
     };
     const onUp = () => (drag.current = null);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
   }, []);
 
-  const onMouseDown = (e) => {
-    if (e.button !== 0) return;
+  const onPointerDown = (e) => {
+    if (e.button != null && e.button !== 0) return;
     drag.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y };
   };
 
@@ -229,8 +232,8 @@ export default function OrgDirectory() {
 
         <div
           ref={viewport}
-          onMouseDown={onMouseDown}
-          className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 cursor-grab active:cursor-grabbing select-none"
+          onPointerDown={onPointerDown}
+          className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 cursor-grab active:cursor-grabbing select-none touch-none"
           style={{ height: '68vh' }}
         >
           <div
@@ -296,7 +299,7 @@ export default function OrgDirectory() {
                   </div>
                   {!isMe && (
                     <button
-                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => messageUser(id)}
                       title={`Message ${n.name}`}
                       className="absolute top-1.5 right-1.5 text-slate-300 hover:text-indigo-600"
@@ -308,7 +311,7 @@ export default function OrgDirectory() {
                   )}
                   {hasKids && (
                     <button
-                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => toggle(id)}
                       title={isCol ? `Expand ${n.children.length}` : 'Collapse'}
                       style={{ position: 'absolute', bottom: -11, left: NODE_W / 2 - 11 }}

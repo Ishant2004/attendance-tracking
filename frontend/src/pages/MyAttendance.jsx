@@ -28,6 +28,14 @@ const typeLabel = (t) => (t === 'half_day' ? 'Half day' : 'Leave');
 const rangeLabel = (r) => (r.fromDate === r.toDate ? fmtDay(r.fromDate) : `${fmtDay(r.fromDate)} → ${fmtDay(r.toDate)}`);
 const EMPTY_FORM = { type: 'leave', fromDate: '', toDate: '', reason: '' };
 const STATUS_OPTIONS = ['WFO', 'WFH', 'Absent', 'Leave', 'Half Day', 'Holiday', 'Weekend'];
+const HISTORY_ACCESSORS = {
+  date: (r) => new Date(r.date).getTime(),
+  status: (r) => r.status,
+  checkIn: (r) => (r.checkInTime ? new Date(r.checkInTime).getTime() : null),
+  checkOut: (r) => (r.checkOutTime ? new Date(r.checkOutTime).getTime() : null),
+  hours: (r) => r.totalHours ?? 0,
+  late: (r) => (r.isLate ? 1 : 0),
+};
 
 export default function MyAttendance() {
   const { user } = useAuth();
@@ -164,6 +172,12 @@ export default function MyAttendance() {
     } catch (e) {
       setReqError(e.response?.data?.message || 'Failed to cancel change request');
     }
+  };
+
+  const requestChange = (r) => {
+    setReqError('');
+    setChangeForm({ status: '', reason: '' });
+    setChangeFor(r);
   };
 
   const punch = async (kind) => {
@@ -415,76 +429,114 @@ export default function MyAttendance() {
         {records.length === 0 ? (
           <p className="text-sm text-slate-500">No records yet.</p>
         ) : (
-          <div className="overflow-x-auto -mx-5 px-5">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-200">
-                  <SortHeader label="Date" sortKey="date" sort={sort} onSort={toggle} />
-                  <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggle} />
-                  <SortHeader label="Check in" sortKey="checkIn" sort={sort} onSort={toggle} />
-                  <SortHeader label="Check out" sortKey="checkOut" sort={sort} onSort={toggle} />
-                  <SortHeader label="Hours" sortKey="hours" sort={sort} onSort={toggle} className="py-2 pr-4 text-right" />
-                  <SortHeader label="Late" sortKey="late" sort={sort} onSort={toggle} />
-                  <th className="py-2 pr-4"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sortRows(records, {
-                  date: (r) => new Date(r.date).getTime(),
-                  status: (r) => r.status,
-                  checkIn: (r) => (r.checkInTime ? new Date(r.checkInTime).getTime() : null),
-                  checkOut: (r) => (r.checkOutTime ? new Date(r.checkOutTime).getTime() : null),
-                  hours: (r) => r.totalHours ?? 0,
-                  late: (r) => (r.isLate ? 1 : 0),
-                }).map((r) => (
-                  <tr key={r._id} className="group hover:bg-slate-50/70 transition-colors">
-                    <td className="py-2.5 pr-4 whitespace-nowrap">
-                      <span className="text-slate-400 mr-1.5">{weekdayIST(r.date)}</span>
-                      <span className="font-medium text-slate-700">{dateIST(r.date)}</span>
-                    </td>
-                    <td className="py-2.5 pr-4"><Badge tone={r.status}>{r.status}</Badge></td>
-                    <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums">
-                      {fmtTime(r.checkInTime) ? (
-                        <span className={r.isLate ? 'text-red-600 font-medium' : 'text-slate-700'}>
-                          {fmtTime(r.checkInTime)}
-                        </span>
-                      ) : (
-                        <Dash />
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">
-                      {fmtTime(r.checkOutTime) || <Dash />}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums text-slate-700">
-                      {r.totalHours ? `${r.totalHours}h` : <Dash />}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      {r.isLate ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-600 px-2 py-0.5 text-xs font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Late
-                        </span>
-                      ) : (
-                        <Dash />
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-2 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => { setReqError(''); setChangeForm({ status: '', reason: '' }); setChangeFor(r); }}
-                        title="Request a change to this day"
-                        aria-label="Request a change to this day"
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 md:opacity-0 md:focus:opacity-100 md:group-hover:opacity-100 transition"
-                      >
-                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
-                      </button>
-                    </td>
+          <>
+            {/* Desktop: full sortable table */}
+            <div className="hidden md:block overflow-x-auto -mx-5 px-5">
+              <table className="w-full text-sm min-w-[600px]">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-200">
+                    <SortHeader label="Date" sortKey="date" sort={sort} onSort={toggle} />
+                    <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggle} />
+                    <SortHeader label="Check in" sortKey="checkIn" sort={sort} onSort={toggle} />
+                    <SortHeader label="Check out" sortKey="checkOut" sort={sort} onSort={toggle} />
+                    <SortHeader label="Hours" sortKey="hours" sort={sort} onSort={toggle} className="py-2 pr-4 text-right" />
+                    <SortHeader label="Late" sortKey="late" sort={sort} onSort={toggle} />
+                    <th className="py-2 pr-4"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sortRows(records, HISTORY_ACCESSORS).map((r) => (
+                    <tr key={r._id} className="group hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 pr-4 whitespace-nowrap">
+                        <span className="text-slate-400 mr-1.5">{weekdayIST(r.date)}</span>
+                        <span className="font-medium text-slate-700">{dateIST(r.date)}</span>
+                      </td>
+                      <td className="py-2.5 pr-4"><Badge tone={r.status}>{r.status}</Badge></td>
+                      <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums">
+                        {fmtTime(r.checkInTime) ? (
+                          <span className={r.isLate ? 'text-red-600 font-medium' : 'text-slate-700'}>
+                            {fmtTime(r.checkInTime)}
+                          </span>
+                        ) : (
+                          <Dash />
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">
+                        {fmtTime(r.checkOutTime) || <Dash />}
+                      </td>
+                      <td className="py-2.5 pr-4 text-right tabular-nums text-slate-700">
+                        {r.totalHours ? `${r.totalHours}h` : <Dash />}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {r.isLate ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-600 px-2 py-0.5 text-xs font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Late
+                          </span>
+                        ) : (
+                          <Dash />
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => requestChange(r)}
+                          title="Request a change to this day"
+                          aria-label="Request a change to this day"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 md:opacity-0 md:focus:opacity-100 md:group-hover:opacity-100 transition"
+                        >
+                          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile: stacked cards (no horizontal scroll) */}
+            <ul className="md:hidden space-y-2">
+              {sortRows(records, HISTORY_ACCESSORS).map((r) => (
+                <li key={r._id} className="rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-700">
+                      <span className="text-slate-400 mr-1">{weekdayIST(r.date)}</span>
+                      {dateIST(r.date)}
+                    </span>
+                    <Badge tone={r.status}>{r.status}</Badge>
+                    <button
+                      onClick={() => requestChange(r)}
+                      aria-label="Request a change to this day"
+                      className="ml-auto inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm tabular-nums">
+                    <span className="text-slate-500 whitespace-nowrap">
+                      In{' '}
+                      <span className={r.isLate ? 'text-red-600 font-medium' : 'text-slate-700 font-medium'}>
+                        {fmtTime(r.checkInTime) || '—'}
+                      </span>
+                    </span>
+                    <span className="text-slate-500 whitespace-nowrap">
+                      Out <span className="text-slate-700 font-medium">{fmtTime(r.checkOutTime) || '—'}</span>
+                    </span>
+                    {r.totalHours ? <span className="text-slate-600 whitespace-nowrap">{r.totalHours}h</span> : null}
+                    {r.isLate && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-600 px-2 py-0.5 text-xs font-medium">
+                        Late
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Card>
 
