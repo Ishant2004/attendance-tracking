@@ -65,6 +65,7 @@ refresh fails ──► clear tokens ──► /login
 ──────────── ProtectedRoute (auth) → <Layout/> shell ────────────
   /                        RoleHome → redirects by role
   /me                      MyAttendance            (all roles)
+  /org                     OrgDirectory            (all roles)
   /change-password         ChangePassword          (all roles)
   /team                    TeamDashboard           roles: manager/leadership/admin
   /leadership              LeadershipDashboard      roles: leadership/admin
@@ -74,7 +75,7 @@ refresh fails ──► clear tokens ──► /login
 `ProtectedRoute` shows a loader while `loading`, redirects to `/login` if not authed, and redirects to `/` if the role isn't allowed.
 
 ## App shell (`components/Layout.jsx`)
-- **Role-aware nav** (`NAV` map): employee → My Attendance; manager → +Team; leadership → +Organization; admin → +Admin.
+- **Role-aware nav** (`NAV` map): employee → My Attendance; manager → +Team; leadership → +Organization; admin → +Admin. **Directory** is appended for every role.
 - **Tracking pill** (right side): reflects `usePingLoop` state — `Locating…` (pending, pulsing) / `Tracking` (green) / `Location off` (denied) / `Unavailable` / `No GPS`.
 - User's **name links to `/change-password`**; **Log out** button.
 - `RoleHome` sends each role to its landing page (`employee→/me`, `manager→/team`, `leadership→/leadership`, `admin→/admin`).
@@ -96,6 +97,7 @@ refresh fails ──► clear tokens ──► /login
 
 > **Delete = soft-delete everywhere.** Users, office locations, and holidays are never hard-deleted — the record is flagged `isActive:false` but **removed from the UI lists** (so there's no "Active" column). Every Delete asks for **confirmation** first. Because deleted items vanish from the list, you can re-create an office/holiday with the same name/date (the backend reactivates the soft-deleted record).
   - **Holidays**: add (date+name), list, soft-delete.
+- **OrgDirectory** (`/org`, everyone): the company **reporting hierarchy** as a visual **org-chart** — boxes connected by orthogonal lines, laid out by a tidy top-down algorithm computed client-side from `usersApi.tree()` (a flat list keyed by `manager`). Interactions: **pan** (drag), **zoom** (scroll or **+ / − / Fit** buttons, auto-fits on load), per-node **collapse/expand** toggles, and search by name/role/team (rings matches and pans to the first). The current user is highlighted; users with no manager become roots (renders as a forest). No external chart library — pure SVG + CSS transform.
 - **ChangePassword** (`/change-password`): centered card, current/new/confirm with eye-toggle password fields.
 
 ## Reusable UI (`components/ui.jsx`)

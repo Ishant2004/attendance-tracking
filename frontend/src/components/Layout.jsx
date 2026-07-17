@@ -24,7 +24,8 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const links = NAV[user.role] || [];
+  // Directory is available to everyone; role-specific links come first.
+  const links = [...(NAV[user.role] || []), { to: '/org', label: 'Directory' }];
   const tracking = usePingLoop(!!user);
 
   const trackLabel =

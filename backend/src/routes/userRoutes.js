@@ -34,6 +34,9 @@ router.post(
   ctrl.create
 );
 
+// Org-wide hierarchy directory (all roles). Registered before '/:id' so it isn't shadowed.
+router.get('/tree', auth, ctrl.tree);
+
 router.get('/:id', auth, ctrl.get);            // scoping enforced in service
 router.get('/:id/team', auth, ctrl.getTeam);   // scoping enforced in service
 

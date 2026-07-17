@@ -22,6 +22,15 @@ async function listUsers(requester, filters = {}) {
   return User.find(query).sort({ createdAt: -1 });
 }
 
+// Org-wide directory for the hierarchy tree — all active users, minimal fields.
+// Visible to every authenticated role (read-only, no sensitive data).
+async function listTree() {
+  return User.find({ isActive: true })
+    .select('name role team manager')
+    .populate('team', 'name')
+    .sort({ name: 1 });
+}
+
 async function getUserById(requester, id) {
   const user = await User.findById(id).populate('manager', 'name email').populate('team', 'name');
   if (!user) throw new ApiError(404, 'User not found');
@@ -117,6 +126,7 @@ async function getUserTeam(requester, id) {
 
 module.exports = {
   listUsers,
+  listTree,
   getUserById,
   createUser,
   updateUser,

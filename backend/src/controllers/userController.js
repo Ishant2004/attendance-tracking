@@ -12,6 +12,11 @@ const get = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { user } });
 });
 
+const tree = asyncHandler(async (req, res) => {
+  const users = await userService.listTree();
+  res.json({ success: true, data: { users } });
+});
+
 const create = asyncHandler(async (req, res) => {
   const user = await userService.createUser(req.body);
   res.status(201).json({ success: true, data: { user } });
@@ -32,4 +37,4 @@ const getTeam = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { team } });
 });
 
-module.exports = { list, get, create, update, remove, getTeam };
+module.exports = { list, tree, get, create, update, remove, getTeam };

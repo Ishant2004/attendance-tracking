@@ -6,6 +6,7 @@ import MyAttendance from './pages/MyAttendance';
 import TeamDashboard from './pages/TeamDashboard';
 import LeadershipDashboard from './pages/LeadershipDashboard';
 import AdminPanel from './pages/AdminPanel';
+import OrgDirectory from './pages/OrgDirectory';
 import ChangePassword from './pages/ChangePassword';
 import ProtectedRoute from './auth/ProtectedRoute';
 
@@ -24,6 +25,7 @@ export default function App() {
       >
         <Route path="/" element={<RoleHome />} />
         <Route path="/me" element={<MyAttendance />} />
+        <Route path="/org" element={<OrgDirectory />} />
         <Route path="/change-password" element={<ChangePassword />} />
 
         <Route
