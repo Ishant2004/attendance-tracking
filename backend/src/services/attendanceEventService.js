@@ -4,8 +4,24 @@ const ApiError = require('../utils/ApiError');
 const { assertCanView } = require('./userService');
 const { resolveAgainstOffices } = require('../utils/geofence');
 
+// The user's current punch state, based only on check-in/check-out (pings are ignored).
+async function isCheckedIn(userId) {
+  const lastPunch = await AttendanceEvent.findOne({
+    user: userId,
+    eventType: { $in: ['check_in', 'check_out'] },
+  }).sort({ timestamp: -1 });
+  return lastPunch ? lastPunch.eventType === 'check_in' : false;
+}
+
 // Ingest one event for a user; geofence resolution happens here.
 async function recordEvent(userId, { eventType, latitude, longitude, timestamp }) {
+    // Enforce the check-in/out toggle: can't check in twice, can't check out when not in.
+    if (eventType === 'check_in' || eventType === 'check_out') {
+      const checkedIn = await isCheckedIn(userId);
+      if (eventType === 'check_in' && checkedIn) throw new ApiError(400, 'You are already checked in');
+      if (eventType === 'check_out' && !checkedIn) throw new ApiError(400, 'You are not checked in');
+    }
+
     const user = await User.findById(userId).populate('officeLocations');
     const { detectedLocationType, officeLocation } = resolveAgainstOffices(
       user?.officeLocations || [],
@@ -53,10 +69,10 @@ async function getCurrentStatus(requester, userId) {
 
   return {
     status: last.detectedLocationType,        // WFO / WFH
-    checkedIn: last.eventType !== 'check_out', // still "in" unless last event was a check-out
+    checkedIn: await isCheckedIn(userId),      // based on last check-in/out, ignoring pings
     officeLocation: last.officeLocation,
     lastEvent: last,
   };
 }
 
-module.exports = { recordEvent, getUserEvents, getCurrentStatus };
+module.exports = { recordEvent, getUserEvents, getCurrentStatus, isCheckedIn };

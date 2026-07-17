@@ -164,9 +164,11 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | POST | `/` | A (rate-limited 60/min) | passive ping (self) |
-| POST | `/check-in` | A | explicit check-in (self) |
-| POST | `/check-out` | A | explicit check-out (self) |
-| GET | `/current-status/:userId` | self/manager | latest status (WFO/WFH, checkedIn) |
+| POST | `/check-in` | A | explicit check-in (self) — **rejected (400) if already checked in** |
+| POST | `/check-out` | A | explicit check-out (self) — **rejected (400) if not checked in** |
+| GET | `/current-status/:userId` | self/manager | latest status (WFO/WFH, `checkedIn`) |
+
+> **Check-in/out toggle:** `checkedIn` is derived from the last **check-in/check-out** event only (pings are ignored, so a ping after check-out never re-flips the state). `recordEvent` enforces it: you can't check in twice or check out when not in — so the flow is check-in → check-out → check-in…
 | GET | `/:userId` | self/manager | raw event history |
 
 ### Attendance records — `/attendance-records`

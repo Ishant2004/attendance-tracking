@@ -229,16 +229,18 @@ export default function MyAttendance() {
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex gap-2">
             <button
-              disabled={busy}
+              disabled={busy || status?.checkedIn}
               onClick={() => punch('in')}
-              className="flex-1 sm:flex-none rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-60"
+              title={status?.checkedIn ? 'You are already checked in' : 'Check in'}
+              className="flex-1 sm:flex-none rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? '…' : 'Check in'}
             </button>
             <button
-              disabled={busy}
+              disabled={busy || !status?.checkedIn}
               onClick={() => punch('out')}
-              className="flex-1 sm:flex-none rounded-lg bg-slate-700 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+              title={status?.checkedIn ? 'Check out' : 'Check in first'}
+              className="flex-1 sm:flex-none rounded-lg bg-slate-700 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? '…' : 'Check out'}
             </button>
