@@ -13,6 +13,15 @@ import { useSort } from '../hooks/useSort';
 const fmt = (dt) => (dt ? new Date(dt).toLocaleString() : '—');
 const fmtDate = (dt) => (dt ? new Date(dt).toLocaleDateString() : '—');
 const fmtDay = (s) => (s ? new Date(`${s}T00:00:00`).toLocaleDateString() : '—');
+// The app runs in IST — render record dates/times in Asia/Kolkata regardless of viewer TZ.
+const IST = 'Asia/Kolkata';
+const fmtTime = (dt) =>
+  dt ? new Date(dt).toLocaleTimeString('en-US', { timeZone: IST, hour: 'numeric', minute: '2-digit' }) : null;
+const dateIST = (dt) =>
+  dt ? new Date(dt).toLocaleDateString('en-GB', { timeZone: IST, day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const weekdayIST = (dt) =>
+  dt ? new Date(dt).toLocaleDateString('en-US', { timeZone: IST, weekday: 'short' }) : '';
+const Dash = () => <span className="text-slate-300">—</span>;
 // The record's `date` is IST midnight; format the IST calendar day (en-CA => YYYY-MM-DD).
 const isoDay = (dt) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(dt));
 const typeLabel = (t) => (t === 'half_day' ? 'Half day' : 'Leave');
@@ -406,20 +415,20 @@ export default function MyAttendance() {
         {records.length === 0 ? (
           <p className="text-sm text-slate-500">No records yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-5 px-5">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-100">
+                <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-200">
                   <SortHeader label="Date" sortKey="date" sort={sort} onSort={toggle} />
                   <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggle} />
                   <SortHeader label="Check in" sortKey="checkIn" sort={sort} onSort={toggle} />
                   <SortHeader label="Check out" sortKey="checkOut" sort={sort} onSort={toggle} />
-                  <SortHeader label="Hours" sortKey="hours" sort={sort} onSort={toggle} />
+                  <SortHeader label="Hours" sortKey="hours" sort={sort} onSort={toggle} className="py-2 pr-4 text-right" />
                   <SortHeader label="Late" sortKey="late" sort={sort} onSort={toggle} />
                   <th className="py-2 pr-4"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100">
                 {sortRows(records, {
                   date: (r) => new Date(r.date).getTime(),
                   status: (r) => r.status,
@@ -428,19 +437,47 @@ export default function MyAttendance() {
                   hours: (r) => r.totalHours ?? 0,
                   late: (r) => (r.isLate ? 1 : 0),
                 }).map((r) => (
-                  <tr key={r._id} className="border-b border-slate-50">
-                    <td className="py-2 pr-4">{fmtDate(r.date)}</td>
-                    <td className="py-2 pr-4"><Badge tone={r.status}>{r.status}</Badge></td>
-                    <td className="py-2 pr-4">{fmt(r.checkInTime)}</td>
-                    <td className="py-2 pr-4">{fmt(r.checkOutTime)}</td>
-                    <td className="py-2 pr-4">{r.totalHours ?? 0}</td>
-                    <td className="py-2 pr-4">{r.isLate ? <Badge tone="high">Late</Badge> : '—'}</td>
-                    <td className="py-2 pr-4 text-right whitespace-nowrap">
+                  <tr key={r._id} className="group hover:bg-slate-50/70 transition-colors">
+                    <td className="py-2.5 pr-4 whitespace-nowrap">
+                      <span className="text-slate-400 mr-1.5">{weekdayIST(r.date)}</span>
+                      <span className="font-medium text-slate-700">{dateIST(r.date)}</span>
+                    </td>
+                    <td className="py-2.5 pr-4"><Badge tone={r.status}>{r.status}</Badge></td>
+                    <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums">
+                      {fmtTime(r.checkInTime) ? (
+                        <span className={r.isLate ? 'text-red-600 font-medium' : 'text-slate-700'}>
+                          {fmtTime(r.checkInTime)}
+                        </span>
+                      ) : (
+                        <Dash />
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">
+                      {fmtTime(r.checkOutTime) || <Dash />}
+                    </td>
+                    <td className="py-2.5 pr-4 text-right tabular-nums text-slate-700">
+                      {r.totalHours ? `${r.totalHours}h` : <Dash />}
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      {r.isLate ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-600 px-2 py-0.5 text-xs font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Late
+                        </span>
+                      ) : (
+                        <Dash />
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-2 text-right whitespace-nowrap">
                       <button
                         onClick={() => { setReqError(''); setChangeForm({ status: '', reason: '' }); setChangeFor(r); }}
-                        className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                        title="Request a change to this day"
+                        aria-label="Request a change to this day"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 md:opacity-0 md:focus:opacity-100 md:group-hover:opacity-100 transition"
                       >
-                        Request change
+                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
                       </button>
                     </td>
                   </tr>
