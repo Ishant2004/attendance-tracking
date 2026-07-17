@@ -17,6 +17,8 @@ AttendanceRecord ─ user ─► User,  officeLocation ─► OfficeLocation   (
 AttendanceFlag ─── user ─► User                                      (outlier alerts)
 LeaveRequest ───── user ─► User,  manager ─► User                    (time-off + approval)
 RecordChangeRequest  user ─► User,  manager ─► User                  (record correction + approval)
+Conversation ───── participants[2] ─► User                          (1:1 chat thread)
+Message ────────── conversation ─► Conversation,  sender ─► User     (chat messages)
 Holiday                                                              (company calendar)
 ```
 
@@ -212,7 +214,32 @@ A user asks their manager to fix **one day's** attendance status (e.g. a day wro
 
 
 
-## 9. `holidays` (global company calendar)
+## 9. `conversations` (1:1 chat threads)
+
+| Field           | Type                  | Allowed values / rules            | Notes                                                            |
+| --------------- | --------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| `_id`           | ObjectId              | auto                              |                                                                  |
+| `participants`  | [ObjectId → `User`]   | exactly 2                         | the two people in the thread                                     |
+| `key`           | String                | required, **unique**              | sorted participant-id pair (`a:b`) — makes a thread unique per pair |
+| `lastMessage`   | String                | ≤ 200 chars                       | preview of the most recent message                              |
+| `lastMessageAt` | Date                  | nullable                          | sort key for the conversation list                             |
+| `unread`        | Map<userId, Number>   | default `{}`                      | per-participant unread counter (serialized as an object in JSON) |
+
+- Created lazily on first message (or when a user opens a thread). `unread[recipient]` is incremented on send, reset to 0 on read.
+
+## 10. `messages` (chat messages)
+
+| Field          | Type                      | Allowed values / rules   | Notes                          |
+| -------------- | ------------------------- | ------------------------ | ------------------------------ |
+| `_id`          | ObjectId                  | auto                     |                                |
+| `conversation` | ObjectId → `Conversation` | required                 |                                |
+| `sender`       | ObjectId → `User`         | required                 |                                |
+| `body`         | String                    | required, ≤ 4000 chars   |                                |
+| `readAt`       | Date                      | nullable                 | set when the recipient reads it |
+
+- **Index:** `{ conversation:1, createdAt:-1 }` for fast history paging.
+
+## 11. `holidays` (global company calendar)
 
 
 | Field      | Type     | Allowed values / rules                              | Notes                                                      |

@@ -7,8 +7,10 @@ import TeamDashboard from './pages/TeamDashboard';
 import LeadershipDashboard from './pages/LeadershipDashboard';
 import AdminPanel from './pages/AdminPanel';
 import OrgDirectory from './pages/OrgDirectory';
+import Chat from './pages/Chat';
 import ChangePassword from './pages/ChangePassword';
 import ProtectedRoute from './auth/ProtectedRoute';
+import { ChatProvider } from './chat/ChatContext';
 
 export default function App() {
   return (
@@ -19,13 +21,16 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <Layout />
+            <ChatProvider>
+              <Layout />
+            </ChatProvider>
           </ProtectedRoute>
         }
       >
         <Route path="/" element={<RoleHome />} />
         <Route path="/me" element={<MyAttendance />} />
         <Route path="/org" element={<OrgDirectory />} />
+        <Route path="/chat" element={<Chat />} />
         <Route path="/change-password" element={<ChangePassword />} />
 
         <Route

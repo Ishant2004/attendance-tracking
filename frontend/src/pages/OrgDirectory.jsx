@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useChat } from '../chat/ChatContext';
 import { usersApi } from '../api/users';
 import { Card, Spinner } from '../components/ui';
 
@@ -19,7 +21,14 @@ const clampZoom = (z) => Math.min(2.5, Math.max(0.3, z));
 
 export default function OrgDirectory() {
   const { user } = useAuth();
+  const { openConversation } = useChat();
+  const navigate = useNavigate();
   const uid = String(user._id || user.id);
+
+  const messageUser = async (id) => {
+    await openConversation(id);
+    navigate('/chat');
+  };
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -285,6 +294,18 @@ export default function OrgDirectory() {
                     </span>
                     {n.team?.name && <span className="text-[10px] text-slate-400 truncate">{n.team.name}</span>}
                   </div>
+                  {!isMe && (
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => messageUser(id)}
+                      title={`Message ${n.name}`}
+                      className="absolute top-1.5 right-1.5 text-slate-300 hover:text-indigo-600"
+                    >
+                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 20l1.4-4.2A8.5 8.5 0 1 1 21 11.5z" />
+                      </svg>
+                    </button>
+                  )}
                   {hasKids && (
                     <button
                       onMouseDown={(e) => e.stopPropagation()}

@@ -104,6 +104,13 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 - On **approve**, `applyToRecord` upserts the day's `AttendanceRecord` to `requestedStatus` and sets `manualOverride:true` (clearing the time fields for non-working statuses). The rollup honours `manualOverride`, so the correction survives future pings/reads. The direct manager override (`PUT /attendance-records/:id`) also sets `manualOverride` when it changes `status`.
 - **`GET /users/:id`** populates `manager` (name/email) and `team` (name) — the `/me` page uses this to show the user's reporting manager.
 
+### Realtime chat — `socket.js` (Socket.IO)
+- Socket.IO is attached to the same HTTP server in `server.js` (`initSocket(server)`); `app.js` stays a plain Express app.
+- **Handshake auth:** `io.use` reads the JWT access token from `socket.handshake.auth.token`, verifies it (same secret as REST), loads the user, and sets `socket.userId`; invalid/inactive → connection refused.
+- On connect each socket **joins a room named by its user id**, so a message is delivered with `io.to(userId)`.
+- Events: client emits **`chat:send`** `{ toUserId, body }` (with an ack) → `chatService.sendMessage` persists it, then `broadcastMessage` emits **`chat:message`** `{ message, conversation }` to **both** participants' rooms; client emits **`chat:read`** `{ conversationId }` to clear unread.
+- `chatService`: `keyFor` (sorted-pair thread key), `getOrCreateConversation`, `sendMessage` (persist + bump `lastMessage`/`unread`), `markRead`, and history/list helpers. Single-instance in-memory rooms; horizontal scaling would add the Socket.IO Redis adapter.
+
 ## Background jobs — `jobs/attendanceJobs.js` (node-cron, IST)
 - **Nightly rollup** — `'30 0 * * *'` (00:30 IST): materialize *yesterday* for every active user (creates Absent/Weekend/Holiday for no-shows).
 - **Weekly detection** — `'30 1 * * 0'` (Sun 01:30 IST): `runDetection({windowDays:7})`.
@@ -190,6 +197,17 @@ Thresholds: `{ lateCount:3, absenceCount:3, lowWfoRatio:0.2, irregularCount:3 }`
 | PUT | `/:id/approve` | manager/leadership/admin | approve → sets that day's record to `requestedStatus` with `manualOverride:true` |
 | PUT | `/:id/reject` | manager/leadership/admin | reject (no record change) |
 | PUT | `/:id/cancel` | A (requester) | withdraw your own pending request |
+
+### Chat — `/chat`
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/conversations` | A | my conversations (sorted by recent, includes per-user `unread`) |
+| POST | `/conversations` | A | start/fetch a 1:1 thread — `{ userId }` (anyone ↔ anyone; not yourself) |
+| GET | `/conversations/:id/messages` | A (participant) | message history (`?before=&limit=`, newest-capped at 100) |
+| POST | `/conversations/:id/messages` | A (participant) | send a message (also broadcast over Socket.IO) |
+| POST | `/conversations/:id/read` | A (participant) | mark the thread read (resets my unread, stamps `readAt`) |
+
+> Sending is normally done over the **WebSocket** (`chat:send`); the REST send endpoint is an equivalent fallback and also broadcasts.
 
 ### Flags — `/flags`
 | Method | Path | Access | Purpose |

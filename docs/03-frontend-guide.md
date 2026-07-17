@@ -2,7 +2,7 @@
 
 ## Stack
 - **Vite + React 19** (JavaScript), **Tailwind v4** (via `@tailwindcss/vite`).
-- **react-router-dom** (routing), **axios** (HTTP), **recharts** (charts), **leaflet** (map picker).
+- **react-router-dom** (routing), **axios** (HTTP), **recharts** (charts), **leaflet** (map picker), **socket.io-client** (realtime chat).
 - Tokens in **localStorage**; UI kept "clean & functional".
 
 ## Folder structure
@@ -15,10 +15,13 @@ frontend/src/
 │   ├── attendance.js     # currentStatus, checkIn, checkOut, ping, records
 │   ├── leaveRequests.js  # create, mine, inbox, approve, reject, cancel
 │   ├── recordChangeRequests.js  # create, mine, inbox, approve, reject, cancel
+│   ├── chat.js           # conversations list/open/messages/read
 │   ├── flags.js dashboard.js
 ├── auth/
 │   ├── AuthContext.jsx   # user state, login/logout, session restore
 │   └── ProtectedRoute.jsx# gate by auth + role
+├── chat/
+│   └── ChatContext.jsx   # Socket.IO connection, conversations, unread, send/open
 ├── components/
 │   ├── ui.jsx            # Card, Badge, Spinner, Stat, Select, PasswordInput, MultiSelect
 │   ├── Layout.jsx        # app shell: role-aware nav, tracking pill, logout
@@ -66,6 +69,7 @@ refresh fails ──► clear tokens ──► /login
   /                        RoleHome → redirects by role
   /me                      MyAttendance            (all roles)
   /org                     OrgDirectory            (all roles)
+  /chat                    Chat                    (all roles)
   /change-password         ChangePassword          (all roles)
   /team                    TeamDashboard           roles: manager/leadership/admin
   /leadership              LeadershipDashboard      roles: leadership/admin
@@ -75,7 +79,7 @@ refresh fails ──► clear tokens ──► /login
 `ProtectedRoute` shows a loader while `loading`, redirects to `/login` if not authed, and redirects to `/` if the role isn't allowed.
 
 ## App shell (`components/Layout.jsx`)
-- **Role-aware nav** (`NAV` map): employee → My Attendance; manager → +Team; leadership → +Organization; admin → +Admin. **Directory** is appended for every role.
+- **Role-aware nav** (`NAV` map): employee → My Attendance; manager → +Team; leadership → +Organization; admin → +Admin. **Directory** and **Chat** are appended for every role; the Chat link shows a live **unread badge** (`useChat().totalUnread`).
 - **Tracking pill** (right side): reflects `usePingLoop` state — `Locating…` (pending, pulsing) / `Tracking` (green) / `Location off` (denied) / `Unavailable` / `No GPS`.
 - User's **name links to `/change-password`**; **Log out** button.
 - `RoleHome` sends each role to its landing page (`employee→/me`, `manager→/team`, `leadership→/leadership`, `admin→/admin`).
@@ -97,7 +101,8 @@ refresh fails ──► clear tokens ──► /login
 
 > **Delete = soft-delete everywhere.** Users, office locations, and holidays are never hard-deleted — the record is flagged `isActive:false` but **removed from the UI lists** (so there's no "Active" column). Every Delete asks for **confirmation** first. Because deleted items vanish from the list, you can re-create an office/holiday with the same name/date (the backend reactivates the soft-deleted record).
   - **Holidays**: add (date+name), list, soft-delete.
-- **OrgDirectory** (`/org`, everyone): the company **reporting hierarchy** as a visual **org-chart** — boxes connected by orthogonal lines, laid out by a tidy top-down algorithm computed client-side from `usersApi.tree()` (a flat list keyed by `manager`). Interactions: **pan** (drag), **zoom** (scroll or **+ / − / Fit** buttons, auto-fits on load), per-node **collapse/expand** toggles, and search by name/role/team (rings matches and pans to the first). The current user is highlighted; users with no manager become roots (renders as a forest). No external chart library — pure SVG + CSS transform.
+- **OrgDirectory** (`/org`, everyone): the company **reporting hierarchy** as a visual **org-chart** — boxes connected by orthogonal lines, laid out by a tidy top-down algorithm computed client-side from `usersApi.tree()` (a flat list keyed by `manager`). Interactions: **pan** (drag), **zoom** (scroll or **+ / − / Fit** buttons, auto-fits on load), per-node **collapse/expand** toggles, and search by name/role/team (rings matches and pans to the first). The current user is highlighted; users with no manager become roots (renders as a forest). No external chart library — pure SVG + CSS transform. Each person (not you) has a **Message** button that opens a chat with them.
+- **Chat** (`/chat`, everyone): 1:1 realtime messaging over **Socket.IO**. Left pane lists conversations (other participant, last-message preview, unread badge); right pane is the thread (bubbles, timestamps, auto-scroll) with a composer. **＋ New message** opens a searchable people picker (anyone ↔ anyone). State lives in **`ChatContext`** (mounted around the authed `Layout`): it holds the socket, conversations, per-thread messages, and `totalUnread`; incoming `chat:message` events append live and bump unread (auto-read if you're viewing that thread). Responsive: on mobile the list and thread swap (with a back arrow).
 - **ChangePassword** (`/change-password`): centered card, current/new/confirm with eye-toggle password fields.
 
 ## Reusable UI (`components/ui.jsx`)

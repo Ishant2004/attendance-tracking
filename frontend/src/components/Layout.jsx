@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useChat } from '../chat/ChatContext';
 import { usePingLoop } from '../hooks/usePingLoop';
 
 // Nav links per role — only what each role needs.
@@ -22,10 +23,15 @@ const NAV = {
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { totalUnread } = useChat();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Directory is available to everyone; role-specific links come first.
-  const links = [...(NAV[user.role] || []), { to: '/org', label: 'Directory' }];
+  // Directory + Chat are available to everyone; role-specific links come first.
+  const links = [
+    ...(NAV[user.role] || []),
+    { to: '/org', label: 'Directory' },
+    { to: '/chat', label: 'Chat', badge: totalUnread },
+  ];
   const tracking = usePingLoop(!!user);
 
   const trackLabel =
@@ -74,7 +80,14 @@ export default function Layout() {
             <nav className="hidden md:flex gap-1">
               {links.map((l) => (
                 <NavLink key={l.to} to={l.to} className={navClass}>
-                  {l.label}
+                  <span className="inline-flex items-center gap-1.5">
+                    {l.label}
+                    {l.badge > 0 && (
+                      <span className="rounded-full bg-indigo-600 text-white text-[10px] font-semibold min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                        {l.badge}
+                      </span>
+                    )}
+                  </span>
                 </NavLink>
               ))}
             </nav>
@@ -109,7 +122,14 @@ export default function Layout() {
           <div className="md:hidden border-t border-slate-100 px-4 py-3 space-y-1">
             {links.map((l) => (
               <NavLink key={l.to} to={l.to} className={mobileNavClass} onClick={() => setMenuOpen(false)}>
-                {l.label}
+                <span className="inline-flex items-center gap-1.5">
+                  {l.label}
+                  {l.badge > 0 && (
+                    <span className="rounded-full bg-indigo-600 text-white text-[10px] font-semibold min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                      {l.badge}
+                    </span>
+                  )}
+                </span>
               </NavLink>
             ))}
             <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-100">
