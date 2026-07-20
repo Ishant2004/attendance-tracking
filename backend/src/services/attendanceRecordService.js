@@ -17,8 +17,11 @@ function dayWindow(dateStr) {
   }
 }
 
-// Aggregate a user's events for one day into their daily record.
-// Never overwrites a manually-set Leave/Holiday. Reused by APIs and (future) cron.
+// Aggregate a user's events for one day into their daily record. Precedence:
+//   1. approved Leave / Half Day / Holiday, or a manager override → preserved as-is
+//   2. Weekend / Holiday (calendar) → always that, regardless of any events
+//   3. working day → WFO/WFH from events, else Absent
+// Reused by the check-in/out APIs, on-read, and the nightly cron.
 async function rollupEventsToRecord(userId, dateStr) {
   const { start, end } = dayWindow(dateStr);
   let record = await AttendanceRecord.findOne({ user: userId, date: start });
@@ -28,17 +31,30 @@ async function rollupEventsToRecord(userId, dateStr) {
   if (record && (record.manualOverride || ['Leave', 'Half Day', 'Holiday'].includes(record.status)))
     return record;
 
+  if (!record) record = new AttendanceRecord({ user: userId, date: start });
+
+  // Weekends and company holidays are days off for everyone — always classified as
+  // Weekend/Holiday, regardless of any pings/check-ins/check-outs on that date.
+  const dayType = await getDayType(dateStr);
+  if (dayType.type !== 'Working') {
+    record.status = dayType.type; // 'Weekend' or 'Holiday'
+    record.checkInTime = null;
+    record.checkOutTime = null;
+    record.totalHours = 0;
+    record.officeLocation = null;
+    record.isLate = false;
+    await record.save();
+    return record;
+  }
+
+  // Working day → derive from the day's events (Absent if there are none).
   const events = await AttendanceEvent.find({
     user: userId,
     timestamp: { $gte: start, $lte: end },
   }).sort({ timestamp: 1 });
 
-  if (!record) record = new AttendanceRecord({ user: userId, date: start });
-
   if (!events.length) {
-    const dayType = await getDayType(dateStr);
-    record.status =
-      dayType.type === 'Holiday' ? 'Holiday' : dayType.type === 'Weekend' ? 'Weekend' : 'Absent';
+    record.status = 'Absent';
     record.checkInTime = null;
     record.checkOutTime = null;
     record.totalHours = 0;

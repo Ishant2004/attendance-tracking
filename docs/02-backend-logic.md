@@ -63,11 +63,10 @@ Two scoping helpers power this:
 ### Daily rollup — `attendanceRecordService.rollupEventsToRecord(userId, dateStr)`
 Aggregates a user's events for one IST day into their `AttendanceRecord`. Precedence:
 1. If an existing record is approved **Leave / Half Day / Holiday**, or has **`manualOverride`** set (a manager correction) → keep it (don't clobber) — this is why check-in/out have **no effect** on an approved leave day, and why an approved record correction sticks.
-2. If there **are events**: `status = WFO` if *any* event that day is WFO, else `WFH`.
-   - `checkInTime` = first `check_in` (or first event); `checkOutTime` = last `check_out` (or last event).
-   - `totalHours` = hours between them; `officeLocation` = first WFO event's office.
-   - `isLate` = check-in hour **≥ 10:00 IST** (`LATE_THRESHOLD_HOUR = 10`).
-3. If **no events**: classify the day via `calendarService.getDayType` → `Holiday` → `Weekend` → else `Absent`.
+2. **Calendar off-day check (before events):** `calendarService.getDayType` → if the date is a **Weekend** (Sat/Sun) or **Holiday**, the record is **always** that status for **every** user, **regardless of any pings/check-ins/check-outs** (times cleared).
+3. **Working day** → derive from the day's events:
+   - If there **are events**: `status = WFO` if *any* event that day is WFO, else `WFH`. `checkInTime` = first `check_in` (or first event); `checkOutTime` = last `check_out` (or last event); `totalHours` = hours between; `officeLocation` = first WFO event's office; `isLate` = check-in hour **≥ 10:00 IST** (`LATE_THRESHOLD_HOUR = 10`).
+   - If **no events**: `Absent`.
 - **Idempotent** (unique `{user,date}` index). Called on read of `/:userId/:date`, on check-in/out, and by the nightly cron.
 - **"Any WFO wins"** heuristic: one office ping flips the day to WFO.
 

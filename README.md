@@ -8,6 +8,7 @@ Deep-dive docs for mind-mapping the whole system. Read top-to-bottom, or jump in
 | 02 | [Backend Logic](02-backend-logic.md) | Layered architecture, auth/JWT, RBAC, the key algorithms (geofence, rollup, detection, dashboards), crons, and the full endpoint inventory |
 | 03 | [Frontend Guide](03-frontend-guide.md) | Vite/React structure, routing, auth context + JWT interceptor, pages by role, components, ping loop, env vars |
 | 04 | [Feature Flows & Integration](04-feature-flow-and-integration.md) | End-to-end journeys (attendance → rollup → dashboards → flags), role journeys, and how frontend ↔ backend wire together |
+| 05 | [Chat Feature](05-chat-feature.md) | 1:1 realtime chat end-to-end: Socket.IO handshake/rooms/events, data model, REST surface, `ChatContext` state, message & unread lifecycle, security, and scaling |
 
 ## 30-second mental model
 ```
